@@ -1,0 +1,7 @@
+*_state.json
+companion_state.json
+.env
+__pycache__/
+*.pyc
+.venv/
+*.zip
