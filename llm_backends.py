@@ -46,13 +46,14 @@ class LLM:
                     return self._openai_compatible(system, messages, max_tokens)
                 return None
             except urllib.error.HTTPError as e:
-                if e.code == 429 and attempt < retries:  # rate limit: wait, then try again
+                if e.code in (429, 500, 502, 503) and attempt < retries:  # busy or rate limited: wait, retry
                     wait = e.headers.get("retry-after") if e.headers else None
                     try:
                         wait = min(max(float(wait), 1.0), 60.0)
                     except (TypeError, ValueError):
-                        wait = 15.0 * (attempt + 1)
-                    print(f"  (rate limit - waiting {wait:.0f}s)")
+                        wait = 5.0 * 2 ** attempt                  # 5s, 10s, 20s
+                    why = "rate limit" if e.code == 429 else "server busy"
+                    print(f"  ({why} - waiting {wait:.0f}s)")
                     time.sleep(wait)
                     continue
                 body = e.read().decode()[:200] if hasattr(e, "read") else ""

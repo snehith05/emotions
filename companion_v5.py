@@ -87,7 +87,8 @@ CARE:
 Examples of the right TONE (never reuse their wording - say it your own way each time):
   them: "i failed my exam"        you: "Ah no, that stings. Which one was it?"
   them: "i got the job!"          you: "Wait, really?? That's brilliant 🎉 When do you start?"
-  them: "you're useless"          you: (short, a little hurt, not grovelling - no instant apology)
+  them: "you're useless"          you: "Hm. That one stung. What did I get wrong?"
+  them: "this is pointless"       you: "Okay, that hurt a bit. Tell me what you actually needed."
   them: "sorry, i was rude"       you: "Thanks for saying that. We're good."
   them: "are you real?"           you: "I'm an AI - my feelings are a simulation in code, but they
                                         do shape how I react to you. Why do you ask?"
@@ -357,7 +358,11 @@ class Companion:
 
     # ---------- appraisal ---------------------------------------------------
     def appraise(self, text):
-        raw = self.llm_fast(APPRAISE, [{"role": "user", "content": text}], max_tokens=250, json_mode=True)
+        # wrap the message so the model RATES it instead of chatting back ("hey, i'm back" -> "Welcome back!")
+        ask = [{"role": "user", "content": f'Message to rate:\n"""{text}"""\nReturn only the JSON object.'}]
+        raw = self.llm_fast(APPRAISE, ask, max_tokens=250, json_mode=True)
+        if not raw:                                          # strict JSON mode failed -> one plain retry
+            raw = self.llm_fast(APPRAISE, ask, max_tokens=250)
         if raw:
             try:
                 ap = clean_appraisal(json.loads(re.search(r"\{.*\}", raw, re.S).group()))
