@@ -45,6 +45,29 @@ Some of the behaviour this produces:
 
 ```bash
 pip install -r requirements.txt
+```
+
+### Web UI (recommended for demos)
+
+```bash
+python app.py                                       # offline rules, no key needed
+python app.py --backend groq                        # needs GROQ_API_KEY
+```
+
+It opens `http://127.0.0.1:8000` in your browser:
+
+- **Chat** on the left, with one-click example messages to try.
+- **Feeling now:** the five emotions as live bars, with how much each moved on the last message.
+- **Mood & state:** mood, stress, energy, curiosity, boredom and trust in you.
+- **Emotions over time:** a line chart across the conversation. Hover for values; click a point to inspect that message; a table view is available.
+- **Why it said that:** click any reply to see how the message was read (good/bad, warmth, who caused it, still ahead or already happened), which emotions moved, what it remembered, and the exact instructions the model was given.
+- **Memories** and a **Reset** button.
+
+The server uses only the Python standard library. The UI and the terminal version share the same save file and log.
+
+### Terminal
+
+```bash
 
 python companion_v5.py                              # offline rules, no model or key needed
 python companion_v5.py --backend groq               # export GROQ_API_KEY=...   (free tier)
@@ -57,10 +80,22 @@ Commands while chatting:
 | command | what it does |
 |---|---|
 | `/emotions` | the five emotions and trust as bars, with the change from your last message |
+| `/why` | why it gave its last reply: appraisal, emotions moved, instructions to the model |
 | `/state` | full internal state (mood, stress, curiosity, energy, boredom) |
 | `/memories` | strongest memories and the emotion each one caused |
 | `/reset` | forget everything and start fresh |
 | `/quit` | exit (state is saved automatically) |
+
+## Logs
+
+Every message is written to `logs/companion_log.jsonl`: what you said, how it was read, which emotions moved, the full state, what was remembered, the instructions given to the model, and the reply (and whether it came from the model or an offline fallback). When a reply feels wrong, this shows why.
+
+```bash
+python read_log.py              # last 10 messages
+python read_log.py -n 30 --full # more messages, with appraisal and instructions
+```
+
+Use `--no-log` to turn it off. The `logs/` folder is in `.gitignore`, because it holds your personal chats.
 
 ## Tests
 
@@ -83,6 +118,8 @@ The emotion engine was first developed and tested on a simpler problem: a delive
 | `emotion_ai.py` | all layers in one engine plus emotional memory (used by the companion) |
 | `versions/companion.py` → `versions/companion_v4.py` | the engine driving a chatbot; v2–v4 remove "assistant-speak" |
 | `companion_v5.py` | **current prototype**: five emotions, richer appraisal, topic-matched memory |
+| `app.py`, `ui/index.html` | web UI: chat, live emotions, emotions over time, "why it said that" |
+| `read_log.py` | reads the per-message log |
 | `llm_backends.py` | Groq / OpenRouter / Gemini / Anthropic / Ollama wrapper |
 
 Rider results (see the `.png` files): emotional memory cut big fines from 48.9 to 10.8 per run and gave the best earnings of the variants tested.
@@ -92,6 +129,7 @@ Older versions are kept in `versions/` for history. To run one, run it from the 
 ## Roadmap
 
 - [x] Prototype with five emotions (joy, sadness, hurt, worry, affection)
+- [x] Per-message logging and a web UI
 - [ ] Needs and goals (connection, curiosity, feeling useful) so emotions have reasons
 - [ ] A model of the user's emotions, separate from its own (empathy, not just contagion)
 - [ ] Regulation: what it feels vs what it shows

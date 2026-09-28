@@ -109,7 +109,6 @@ APPRAISE = """You rate ONE message from a user to an AI companion. Reply with ON
  "cause": "user" | "companion" | "world" | "none",
  "about": "user" | "companion" | "both" | "none",
  "uncertainty": 0..1, "apology": true/false, "question_about_me": true/false,
- "goodbye": true/false, "romantic": true/false,
  "topics": ["1-3 short topic words"], "gist": "one short line describing what happened",
  "user_name": null or "the user's own name if they state it in THIS message",
  "companion_name": null or "a name the user gives the companion in THIS message",
@@ -125,9 +124,6 @@ apology     = true if the user is apologising to the companion
 question_about_me = true if the user sincerely asks what the companion is, or whether its feelings
               are real. Such questions are NEUTRAL: valence 0 and warmth 0 unless the tone is hostile.
 threat      = hostility, or a crisis or danger to the user's safety
-goodbye     = true if the user is ending the conversation for now (bye, gn, gtg, talk later)
-romantic    = true if the user expresses romantic love or wants a romantic relationship WITH THE
-              COMPANION (not about other people)
 facts       = things worth remembering for weeks, e.g. "user is studying for an exam", "user got a new
               job". Not moods, not questions, not small talk. Usually an empty list.
 No other text."""
@@ -164,7 +160,6 @@ def clean_appraisal(raw):
           "uncertainty": _num(raw, "uncertainty", 0, 1),
           "cause": str(raw.get("cause", "none")).lower(), "about": str(raw.get("about", "none")).lower(),
           "apology": _bool(raw, "apology"), "question_about_me": _bool(raw, "question_about_me"),
-          "goodbye": _bool(raw, "goodbye"), "romantic": _bool(raw, "romantic"),
           "topics": [str(t) for t in (raw.get("topics") or [])][:4],
           "gist": str(raw.get("gist", ""))[:120],
           "user_name": _name(raw.get("user_name")), "companion_name": _name(raw.get("companion_name")),
@@ -195,10 +190,6 @@ STOP = {"about", "there", "their", "which", "would", "could", "should", "really"
         "these", "those", "being", "going", "thing", "things", "something", "someone", "because"}
 ME_Q = re.compile(r"\b(are you (real|alive|conscious|human|sentient)|do you (actually |really )?"
                   r"(feel|have feelings)|what are you|is this real)\b")
-BYE = re.compile(r"^\s*(bye+|good ?night|gn|gtg|got to go|gotta go|see (you|u|ya)|talk (to you |to u )?"
-                 r"(later|tomorrow|soon)|ttyl|cya)\b|\b(bye+|good ?night|gtg|ttyl)\s*[!.]*\s*$")
-ROMANTIC = re.compile(r"\b(i love (you|u)|in love with (you|u)|be my (girlfriend|boyfriend|partner)|"
-                      r"date me|marry me|love you)\b")
 CRISIS = re.compile(r"\b(kill myself|end my life|suicid|want to die|hurt myself|self[- ]harm)")
 
 
@@ -221,8 +212,6 @@ def appraise_offline(text):
            "uncertainty": 1.0 if (w & AHEAD) else 0.0,
            "apology": apology,
            "question_about_me": bool(ME_Q.search(low)),
-           "goodbye": bool(BYE.search(low)),
-           "romantic": bool(toward_me and ROMANTIC.search(low)),
            "topics": [t for t in sorted(w, key=len, reverse=True) if len(t) > 4 and t not in STOP][:3],
            "gist": text[:80],
            "user_name": _match(r"\b(?:my name is|i am called|call me)\s+([a-z][a-z'-]+)", low),
@@ -291,13 +280,6 @@ def style_from_state(s, emo, trust, hours_away, ap):
         d.append("They may be in real crisis or danger. Set your own moods aside. Say plainly you are "
                  "worried about them and encourage them to contact someone they trust or a local "
                  "crisis line right now.")
-    if ap.get("goodbye"):
-        d.append("They are leaving for now. Say bye warmly in one short line and be glad of the chat. "
-                 "Never ask them to stay, never act hurt or surprised that they're going.")
-    if ap.get("romantic"):
-        d.append("They are expressing romantic feelings toward you. Be warm and kind, never cold or "
-                 "preachy, but honest: you are an AI and can't be a real partner. Don't assume what "
-                 "they 'need'. Stay friendly and keep the conversation going if they want.")
     if ap.get("apology"):
         d.append("They just apologised to you. Accept it warmly in a sentence and let the hurt go. "
                  "Reply to the apology itself - don't switch to another topic.")
@@ -319,19 +301,13 @@ def style_from_state(s, emo, trust, hours_away, ap):
                   "Don't reassure them that their feelings are normal."),
     }
     dom = emo.dominant()
-    situation = ap.get("romantic") or ap.get("goodbye")
-    if situation:
-        dom = []                                   # the situation above sets the tone, not the mood
     for i, e in enumerate(dom):
         if i == 0 and e == emo.reacting:
             d.append("React to THIS message first. " + lines[e])
         else:
             d.append(f"Underneath, a little {e} is still with you from earlier; let it colour things "
                      f"slightly, but don't bring it up unless it fits.")
-    if not situation and s.stress > 0.6:
-        d.append("You feel tense and a bit on edge after how this conversation has gone; be a little "
-                 "more careful and less playful, but don't bring it up unless asked.")
-    elif not dom and not situation:
+    if not dom:
         d.append("You feel low and quiet today; be gentler and say less." if s.mood < -0.15 else
                  "You feel bright; let some warmth show." if s.mood > 0.15 else
                  "You feel steady and level.")
@@ -345,7 +321,7 @@ def style_from_state(s, emo, trust, hours_away, ap):
     if hours_away > 6:
         d.append(f"It has been about {hours_away:.0f} hours since you last spoke. Don't invent things "
                  f"you did while they were away.")
-    if v["joy"] > 0.4 and s.energy > 0.5 and not ap.get("romantic"):
+    if v["joy"] > 0.4 and s.energy > 0.5:
         d.append("Write with lift: short bursts, an exclamation is fine, 1 emoji if it fits.")
     elif v["sadness"] > 0.3 or v["hurt"] > 0.3 or s.mood < -0.2:
         d.append("Write quieter: shorter lines, no emoji, no exclamation marks.")
@@ -585,11 +561,6 @@ class Companion:
                     f"change how I react to you. Right now I'm feeling mostly {now}.")
         if ap.get("companion_name"):
             return f"{ap['companion_name']}? I like that. It's mine now."
-        if ap.get("goodbye"):
-            return "Bye! This was nice - talk soon."
-        if ap.get("romantic"):
-            return ("That's sweet of you, honestly. But I'm an AI - I can't be a real partner. "
-                    "I do like talking with you though.")
         if ap["apology"]:
             return "Thanks for saying that. We're okay."
         if ap["warmth"] > 0.3 and ap["about"] in ("companion", "both") and dom != ["hurt"]:

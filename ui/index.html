@@ -1,0 +1,721 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Emotion Companion</title>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --raised: #ffffff;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #6f6d67;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --ring: rgba(11,11,11,0.10);
+  --user-bubble: #ecebe5;
+  --focus: #2a78d6;
+  --good-text: #006300;
+  --bad-text: #b3261e;
+  /* emotions: validated categorical slots, one identity each */
+  --joy: #eda100;
+  --sadness: #2a78d6;
+  --hurt: #eb6834;
+  --worry: #1baf7a;
+  --affection: #e87ba4;
+  /* mood is diverging: two poles around a neutral middle */
+  --pos: #2a78d6;
+  --neg: #e34948;
+  --meter: #52514e;
+  --track: #ecebe6;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --raised: #222220;
+    --ink: #ffffff; --ink-2: #c3c2b7; --muted: #9a988f;
+    --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10);
+    --user-bubble: #2e2e2b; --focus: #3987e5;
+    --good-text: #0ca30c; --bad-text: #e66767;
+    --joy: #c98500; --sadness: #3987e5; --hurt: #d95926; --worry: #199e70; --affection: #d55181;
+    --pos: #3987e5; --neg: #e66767; --meter: #c3c2b7; --track: #2c2c2a;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --raised: #222220;
+  --ink: #ffffff; --ink-2: #c3c2b7; --muted: #9a988f;
+  --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10);
+  --user-bubble: #2e2e2b; --focus: #3987e5;
+  --good-text: #0ca30c; --bad-text: #e66767;
+  --joy: #c98500; --sadness: #3987e5; --hurt: #d95926; --worry: #199e70; --affection: #d55181;
+  --pos: #3987e5; --neg: #e66767; --meter: #c3c2b7; --track: #2c2c2a;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--page);
+  color: var(--ink);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+button, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* ---------- top bar ---------- */
+.top {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 20px; border-bottom: 1px solid var(--ring); background: var(--surface);
+}
+.brand { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.brand h1 { font-size: 17px; margin: 0; font-weight: 650; letter-spacing: -0.01em; }
+.brand .sub { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.spacer { flex: 1; }
+.pill {
+  font-size: 12px; color: var(--ink-2); border: 1px solid var(--ring); border-radius: 999px;
+  padding: 3px 10px; white-space: nowrap;
+}
+.btn {
+  border: 1px solid var(--ring); background: var(--raised); border-radius: 8px;
+  padding: 6px 12px; font-size: 13px;
+}
+.btn:hover { background: var(--track); }
+
+/* ---------- layout ---------- */
+.layout {
+  display: grid; grid-template-columns: minmax(0, 1fr) 440px;
+  height: calc(100% - 57px);
+}
+.chat { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--ring); }
+.inner { overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+
+/* ---------- chat ---------- */
+.messages { flex: 1; overflow-y: auto; padding: 24px 24px 8px; display: flex; flex-direction: column; gap: 14px; }
+.empty { margin: auto; max-width: 420px; text-align: center; color: var(--ink-2); }
+.empty h2 { font-size: 18px; color: var(--ink); margin: 0 0 6px; font-weight: 600; }
+.empty p { margin: 0; font-size: 14px; }
+.msg { display: flex; flex-direction: column; max-width: min(620px, 82%); }
+.msg.you { align-self: flex-end; align-items: flex-end; }
+.msg.it { align-self: flex-start; align-items: flex-start; }
+.bubble { padding: 10px 14px; border-radius: 16px; white-space: pre-wrap; word-wrap: break-word; }
+.you .bubble { background: var(--user-bubble); border-bottom-right-radius: 4px; }
+.it .bubble {
+  background: var(--raised); border: 1px solid var(--ring); border-bottom-left-radius: 4px;
+  text-align: left;
+}
+button.bubble { display: block; }
+.it .bubble:hover { border-color: var(--axis); }
+.it.selected .bubble { box-shadow: 0 0 0 2px var(--focus); border-color: transparent; }
+.meta { display: flex; gap: 8px; align-items: center; margin-top: 5px; font-size: 12px; color: var(--muted); }
+.feel { display: inline-flex; align-items: center; gap: 5px; color: var(--ink-2); }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.tag { border: 1px solid var(--ring); border-radius: 4px; padding: 0 5px; }
+.notice { align-self: center; font-size: 13px; color: var(--muted); text-align: center; max-width: 520px; }
+.notice.err { color: var(--bad-text); }
+.typing .bubble { color: var(--muted); }
+.typing .bubble span { animation: blink 1.2s infinite; }
+.typing .bubble span:nth-child(2) { animation-delay: .2s; }
+.typing .bubble span:nth-child(3) { animation-delay: .4s; }
+@keyframes blink { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+
+.composer { padding: 10px 24px 18px; border-top: 1px solid var(--ring); background: var(--surface); }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.chips .label { font-size: 12px; color: var(--muted); align-self: center; margin-right: 2px; }
+.chip {
+  font-size: 12.5px; border: 1px solid var(--ring); background: var(--raised);
+  border-radius: 999px; padding: 3px 10px; color: var(--ink-2);
+}
+.chip:hover { background: var(--track); color: var(--ink); }
+.row { display: flex; gap: 8px; align-items: flex-end; }
+textarea {
+  flex: 1; resize: none; border: 1px solid var(--ring); background: var(--raised);
+  border-radius: 12px; padding: 10px 12px; min-height: 44px; max-height: 160px;
+}
+.send {
+  border: 0; border-radius: 12px; padding: 0 18px; height: 44px;
+  background: var(--ink); color: var(--page); font-weight: 600;
+}
+.send:disabled { opacity: .4; cursor: default; }
+
+/* ---------- cards ---------- */
+.card { background: var(--surface); border: 1px solid var(--ring); border-radius: 12px; padding: 14px 16px; }
+.card h3 {
+  margin: 0 0 10px; font-size: 12px; font-weight: 600; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 8px;
+}
+.card h3 .right { margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 400; }
+.linkbtn { border: 0; background: none; color: var(--ink-2); font-size: 12px; padding: 0; text-decoration: underline; }
+.hint { font-size: 13px; color: var(--muted); margin: 0; }
+
+/* emotion bars */
+.emo { display: grid; grid-template-columns: 92px 1fr 44px 52px; align-items: center; gap: 10px; padding: 4px 0; }
+.emo .name { display: flex; align-items: center; gap: 7px; font-size: 14px; }
+.emo.reacting .name { font-weight: 650; }
+.bar { height: 8px; background: var(--track); border-radius: 4px; overflow: hidden; }
+.bar > i { display: block; height: 100%; border-radius: 4px; transition: width .6s ease; }
+.val { text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; }
+.delta { text-align: right; font-variant-numeric: tabular-nums; font-size: 12px; color: var(--muted); }
+.delta.up, .delta.down { color: var(--ink-2); }
+.reactline { font-size: 13px; color: var(--ink-2); margin-top: 8px; min-height: 20px; }
+
+/* state meters */
+.meters { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; }
+.meter .top2 { display: flex; justify-content: space-between; font-size: 13px; color: var(--ink-2); margin-bottom: 4px; }
+.meter .top2 b { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+.meter .bar > i { background: var(--meter); }
+.mood { grid-column: 1 / -1; }
+.div-bar { position: relative; height: 8px; background: var(--track); border-radius: 4px; }
+.div-bar::after { content: ""; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--axis); }
+.div-bar > i { position: absolute; top: 0; bottom: 0; border-radius: 4px; transition: all .6s ease; }
+.scale { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+/* chart */
+.legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-bottom: 6px; font-size: 12.5px; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend .key { width: 14px; height: 2px; border-radius: 1px; }
+.chartwrap { position: relative; }
+.chartwrap svg { display: block; width: 100%; height: 190px; overflow: visible; }
+.chartwrap svg:focus { outline: none; }
+.chartwrap svg:focus-visible { outline: 2px solid var(--focus); outline-offset: 4px; border-radius: 4px; }
+.tip {
+  position: absolute; pointer-events: none; background: var(--raised); border: 1px solid var(--ring);
+  border-radius: 8px; padding: 8px 10px; font-size: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.12);
+  min-width: 150px; max-width: 220px; opacity: 0; transition: opacity .1s; z-index: 5;
+}
+.tip.show { opacity: 1; }
+.tip .t { color: var(--muted); margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tip .r { display: flex; align-items: center; gap: 7px; }
+.tip .r b { font-weight: 650; font-variant-numeric: tabular-nums; min-width: 32px; }
+.tip .r .key { width: 12px; height: 2px; border-radius: 1px; }
+.tip .r em { font-style: normal; color: var(--ink-2); }
+table.data { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+table.data th, table.data td { padding: 4px 6px; text-align: right; border-bottom: 1px solid var(--grid); }
+table.data th:first-child, table.data td:first-child { text-align: left; }
+table.data th { color: var(--muted); font-weight: 500; }
+.tablebox { max-height: 220px; overflow: auto; }
+
+/* why panel */
+.quote { border-left: 2px solid var(--axis); padding: 2px 0 2px 10px; color: var(--ink-2); margin: 0 0 12px; font-size: 14px; }
+.kv { display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.kv div { background: var(--page); border-radius: 8px; padding: 6px 8px; }
+.kv small { display: block; font-size: 11px; color: var(--muted); }
+.kv b { font-weight: 550; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+.sect { font-size: 12px; color: var(--muted); margin: 12px 0 4px; }
+.moved { display: flex; flex-wrap: wrap; gap: 6px; }
+.moved span { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; border: 1px solid var(--ring); border-radius: 999px; padding: 1px 9px; }
+ol.instr { margin: 0; padding-left: 18px; font-size: 13px; color: var(--ink-2); }
+ol.instr li { margin: 3px 0; }
+.src { font-size: 12px; color: var(--muted); margin: -4px 0 10px; }
+.src:empty { display: none; }
+
+/* memories */
+ul.mem { list-style: none; margin: 0; padding: 0; }
+ul.mem li { display: flex; gap: 8px; align-items: baseline; padding: 5px 0; border-bottom: 1px solid var(--grid); font-size: 13px; }
+ul.mem li:last-child { border-bottom: 0; }
+ul.mem .str { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; min-width: 30px; }
+ul.mem .dot { transform: translateY(1px); }
+
+@media (max-width: 900px) {
+  .layout { display: block; height: auto; }
+  .chat { height: 72vh; border-right: 0; border-bottom: 1px solid var(--ring); }
+  .messages { padding: 16px; }
+  .composer { padding: 10px 16px 14px; }
+  .inner { overflow: visible; padding: 16px; }
+  .brand .sub { display: none; }
+  .chips { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; }
+  .chip { white-space: nowrap; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bar > i, .div-bar > i { transition: none; }
+  .typing .bubble span { animation: none; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <h1>Emotion Companion</h1>
+    <span class="sub">feelings computed in code · the model only puts them into words</span>
+  </div>
+  <div class="spacer"></div>
+  <span class="pill" id="backend">connecting…</span>
+  <button class="btn" id="reset" type="button">Reset</button>
+</header>
+
+<main class="layout">
+  <section class="chat" aria-label="Conversation">
+    <div class="messages" id="messages" aria-live="polite"></div>
+    <div class="composer">
+      <div class="chips" id="chips"><span class="label">Try:</span></div>
+      <form class="row" id="form">
+        <textarea id="input" rows="1" placeholder="Say something…" aria-label="Message"></textarea>
+        <button class="send" id="send" type="submit">Send</button>
+      </form>
+    </div>
+  </section>
+
+  <aside class="inner" aria-label="Inner state">
+    <div class="card">
+      <h3>Feeling now</h3>
+      <div id="emotions"></div>
+      <div class="reactline" id="reactline"></div>
+    </div>
+
+    <div class="card">
+      <h3>Mood &amp; state</h3>
+      <div class="meters" id="meters"></div>
+    </div>
+
+    <div class="card">
+      <h3>Emotions over time <span class="right"><button class="linkbtn" id="tabletoggle" type="button">Show table</button></span></h3>
+      <div class="legend" id="legend"></div>
+      <div class="chartwrap" id="chartwrap">
+        <svg id="chart" tabindex="0" role="img" aria-label="Line chart of the five emotions after each message. Use left and right arrow keys to move between messages."></svg>
+        <div class="tip" id="tip"></div>
+      </div>
+      <div class="tablebox" id="tablebox" hidden></div>
+    </div>
+
+    <div class="card">
+      <h3>Why it said that</h3>
+      <p class="src" id="whysrc"></p>
+      <div id="why"><p class="hint">Send a message, then click any reply to see how the message was read, which emotions moved, and what the model was told.</p></div>
+    </div>
+
+    <div class="card">
+      <h3>Memories</h3>
+      <div id="memories"><p class="hint">Nothing strong enough to remember yet.</p></div>
+    </div>
+  </aside>
+</main>
+
+<script>
+"use strict";
+const EMOTIONS = ["joy", "sadness", "hurt", "worry", "affection"];
+const SUGGESTIONS = [
+  "I got the job!! I'm so happy",
+  "I'm scared about my exam tomorrow",
+  "I failed my exam today, I feel terrible",
+  "you're useless, that was a stupid answer",
+  "sorry, I was rude earlier",
+  "are you real? do you actually feel things?",
+];
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text !== undefined) n.textContent = text;
+  return n;
+};
+const color = (e) => `var(--${e})`;
+const fmt = (x, d = 2) => Number(x).toFixed(d);
+const signed = (x) => (x >= 0 ? "+" : "−") + Math.abs(x).toFixed(2);
+
+let timeline = [];          // one record per reply: appraisal, emotions, state, instructions
+let selected = -1;          // index into timeline shown in the "why" panel
+let hover = -1;
+let busy = false;
+
+// ------------------------------------------------------------ chat
+function addUser(text) {
+  const m = el("div", "msg you");
+  m.appendChild(el("div", "bubble", text));
+  $("messages").appendChild(m);
+}
+
+function addReply(text, turnIndex) {
+  const m = el("div", "msg it");
+  const b = el("button", "bubble", text);
+  b.type = "button";
+  const t = timeline[turnIndex];
+  if (t) {
+    m.dataset.turn = turnIndex;
+    b.title = "See why it said this";
+    b.addEventListener("click", () => select(turnIndex));
+    const meta = el("div", "meta");
+    if (t.reacting && t.reacting !== "none") {
+      const f = el("span", "feel");
+      const d = el("i", "dot"); d.style.background = color(t.reacting);
+      f.append(d, document.createTextNode(t.reacting));
+      meta.appendChild(f);
+    }
+    if (t.reply_source === "offline fallback") {
+      const tag = el("span", "tag", "offline fallback");
+      tag.title = "The model didn't answer, so fixed offline rules wrote this reply";
+      meta.appendChild(tag);
+    }
+    m.append(b, meta);
+  } else {
+    b.disabled = true;
+    m.appendChild(b);
+  }
+  $("messages").appendChild(m);
+}
+
+function addNotice(text, err) {
+  $("messages").appendChild(el("div", "notice" + (err ? " err" : ""), text));
+}
+
+function showEmpty() {
+  const box = $("messages");
+  box.textContent = "";
+  const e = el("div", "empty");
+  e.append(el("h2", null, "Say hello"),
+           el("p", null, "Its emotions are numbers that change with every message, fade over time and are saved between visits. Watch the panel on the right as you talk."));
+  box.appendChild(e);
+}
+
+function scrollDown() { const b = $("messages"); b.scrollTop = b.scrollHeight; }
+
+async function send(text) {
+  text = text.trim();
+  if (!text || busy) return;
+  busy = true; $("send").disabled = true;
+  const empty = document.querySelector(".empty"); if (empty) empty.remove();
+  addUser(text);
+  $("input").value = ""; autosize();
+  const typing = el("div", "msg it typing");
+  const tb = el("div", "bubble");
+  tb.append(el("span", null, "●"), el("span", null, " ●"), el("span", null, " ●"));
+  typing.appendChild(tb);
+  $("messages").appendChild(typing); scrollDown();
+  try {
+    const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" },
+                                         body: JSON.stringify({ message: text }) });
+    const data = await r.json();
+    typing.remove();
+    if (!r.ok) throw new Error(data.error || r.statusText);
+    timeline.push(data.turn);
+    addReply(data.reply, timeline.length - 1);
+    renderSnapshot(data.snapshot);
+    renderChart();
+    select(timeline.length - 1);
+  } catch (err) {
+    typing.remove();
+    addNotice("Couldn't get a reply: " + err.message + ". Check the terminal running app.py.", true);
+  } finally {
+    busy = false; $("send").disabled = false; scrollDown(); $("input").focus();
+  }
+}
+
+// ------------------------------------------------------------ inner state
+function renderSnapshot(s) {
+  const box = $("emotions"); box.textContent = "";
+  for (const e of EMOTIONS) {
+    const v = s.emotions[e] || 0, ch = s.change[e] || 0;
+    const row = el("div", "emo" + (s.reacting === e ? " reacting" : ""));
+    const name = el("div", "name");
+    const d = el("i", "dot"); d.style.background = color(e);
+    name.append(d, document.createTextNode(e));
+    const bar = el("div", "bar"); const fill = el("i");
+    fill.style.width = Math.round(v * 100) + "%"; fill.style.background = color(e);
+    bar.appendChild(fill);
+    bar.setAttribute("role", "meter"); bar.setAttribute("aria-label", e);
+    bar.setAttribute("aria-valuemin", "0"); bar.setAttribute("aria-valuemax", "1"); bar.setAttribute("aria-valuenow", fmt(v));
+    const delta = el("div", "delta" + (ch > 0.01 ? " up" : ch < -0.01 ? " down" : ""),
+                     Math.abs(ch) > 0.01 ? (ch > 0 ? "▲ " : "▼ ") + Math.abs(ch).toFixed(2) : "");
+    row.append(name, bar, el("div", "val", fmt(v)), delta);
+    box.appendChild(row);
+  }
+  $("reactline").textContent = s.reacting && s.reacting !== "none"
+    ? `Your last message made it feel ${s.reacting}.`
+    : s.turns ? "Your last message didn't stir a strong emotion." : "";
+
+  const m = $("meters"); m.textContent = "";
+  // mood: diverging around 0
+  const mood = el("div", "meter mood");
+  const t1 = el("div", "top2"); t1.append(el("span", null, "mood"), el("b", null, signed(s.state.mood)));
+  const db = el("div", "div-bar"); const df = el("i");
+  const mv = Math.max(-1, Math.min(1, s.state.mood));
+  df.style.left = (mv >= 0 ? 50 : 50 + mv * 50) + "%";
+  df.style.width = Math.abs(mv) * 50 + "%";
+  df.style.background = mv >= 0 ? "var(--pos)" : "var(--neg)";
+  db.appendChild(df);
+  const sc = el("div", "scale"); sc.append(el("span", null, "low"), el("span", null, "neutral"), el("span", null, "bright"));
+  mood.append(t1, db, sc); m.appendChild(mood);
+  const meters = [["stress", s.state.stress, 1], ["energy", s.state.energy, 1],
+                  ["curiosity", s.state.curiosity, 2], ["boredom", s.state.boredom, 1],
+                  ["trust in you", s.trust, 1]];
+  for (const [label, v, max] of meters) {
+    const w = el("div", "meter");
+    const t = el("div", "top2"); t.append(el("span", null, label), el("b", null, fmt(v)));
+    const bar = el("div", "bar"); const f = el("i"); f.style.width = Math.round(Math.min(1, v / max) * 100) + "%";
+    bar.appendChild(f); w.append(t, bar); m.appendChild(w);
+  }
+
+  const mem = $("memories"); mem.textContent = "";
+  const k = s.known || {};
+  const facts = [];
+  if (k.companion_name) facts.push(`Its name is ${k.companion_name}`);
+  if (k.user_name) facts.push(`Your name is ${k.user_name}`);
+  for (const f of (k.facts || []).slice(-8)) facts.push(f);
+  if (facts.length) {
+    mem.appendChild(el("div", "sect", "Knows about you and itself"));
+    const ul = el("ul", "mem");
+    for (const f of facts) ul.appendChild(el("li", null, f));
+    mem.appendChild(ul);
+    mem.appendChild(el("div", "sect", "Emotional moments"));
+  }
+  if (!s.memories.length) {
+    mem.appendChild(el("p", "hint", "Nothing strong enough to remember yet."));
+  } else {
+    const ul = el("ul", "mem");
+    for (const x of s.memories) {
+      const li = el("li");
+      const d = el("i", "dot");
+      d.style.background = EMOTIONS.includes(x.emotion) ? color(x.emotion) : "var(--axis)";
+      d.title = x.emotion;
+      li.append(el("span", "str", fmt(x.strength, 1)), d, el("span", null, x.gist));
+      ul.appendChild(li);
+    }
+    mem.appendChild(ul);
+  }
+}
+
+// ------------------------------------------------------------ why panel
+function select(i) {
+  selected = i;
+  document.querySelectorAll(".msg.it").forEach((n) => n.classList.toggle("selected", Number(n.dataset.turn) === i));
+  renderWhy(); renderChart();
+}
+
+function renderWhy() {
+  const box = $("why"); box.textContent = "";
+  const t = timeline[selected];
+  if (!t) {
+    $("whysrc").textContent = "";
+    box.appendChild(el("p", "hint", "Send a message, then click any reply to see how the message was read, which emotions moved, and what the model was told."));
+    return;
+  }
+  const ap = t.appraisal;
+  $("whysrc").textContent = `message ${selected + 1} · read by ${ap.source || "?"} · reply by ${t.reply_source}`;
+  box.appendChild(el("p", "quote", t.user));
+
+  const kv = el("div", "kv");
+  const cell = (k, v) => { const d = el("div"); d.append(el("small", null, k), el("b", null, v)); kv.appendChild(d); };
+  cell("good / bad", signed(ap.valence));
+  cell("warmth to it", signed(ap.warmth));
+  cell("still ahead?", fmt(ap.uncertainty));
+  cell("threat", fmt(ap.threat));
+  cell("caused by", ap.cause);
+  cell("about", ap.about);
+  cell("apology", ap.apology ? "yes" : "no");
+  cell("asks what it is", ap.question_about_me ? "yes" : "no");
+  box.appendChild(kv);
+
+  box.appendChild(el("div", "sect", t.reacting !== "none" ? `It felt ${t.reacting}. Emotions that moved:` : "Emotions that moved:"));
+  const mv = el("div", "moved");
+  const changes = EMOTIONS.filter((e) => Math.abs(t.change[e]) > 0.01);
+  if (!changes.length) mv.appendChild(el("span", null, "nothing much"));
+  for (const e of changes) {
+    const s = el("span"); const d = el("i", "dot"); d.style.background = color(e);
+    s.append(d, document.createTextNode(`${e} ${signed(t.change[e])}`));
+    mv.appendChild(s);
+  }
+  box.appendChild(mv);
+
+  if (t.recalled && t.recalled.length) {
+    box.appendChild(el("div", "sect", "Remembered from before:"));
+    const ul = el("ul", "mem");
+    for (const r of t.recalled) ul.appendChild(el("li", null, `${r.gist} (felt ${r.emotion})`));
+    box.appendChild(ul);
+  }
+  box.appendChild(el("div", "sect", "What the model was told to do:"));
+  const ol = el("ol", "instr");
+  for (const line of t.instructions) ol.appendChild(el("li", null, line));
+  box.appendChild(ol);
+  if (t.hours_away >= 1) box.appendChild(el("div", "sect", `Came after about ${Math.round(t.hours_away)} hours away.`));
+}
+
+// ------------------------------------------------------------ chart
+function renderLegend() {
+  const lg = $("legend"); lg.textContent = "";
+  for (const e of EMOTIONS) {
+    const s = el("span"); const k = el("i", "key"); k.style.background = color(e);
+    s.append(k, document.createTextNode(e)); lg.appendChild(s);
+  }
+}
+
+const NS = "http://www.w3.org/2000/svg";
+const svgEl = (tag, attrs) => { const n = document.createElementNS(NS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); return n; };
+
+function renderChart() {
+  const svg = $("chart");
+  const W = svg.clientWidth || 400, H = 190;
+  const m = { l: 30, r: 10, t: 8, b: 22 };
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.textContent = "";
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const n = timeline.length;
+  const x = (i) => m.l + (n <= 1 ? iw / 2 : (i / (n - 1)) * iw);
+  const y = (v) => m.t + (1 - v) * ih;
+
+  for (const v of [0, 0.5, 1]) {
+    svg.appendChild(svgEl("line", { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v),
+      stroke: v === 0 ? "var(--axis)" : "var(--grid)", "stroke-width": 1 }));
+    const tx = svgEl("text", { x: m.l - 6, y: y(v) + 4, "text-anchor": "end", "font-size": 11, fill: "var(--muted)" });
+    tx.textContent = v; svg.appendChild(tx);
+  }
+  if (!n) {
+    const tx = svgEl("text", { x: m.l + iw / 2, y: m.t + ih / 2, "text-anchor": "middle", "font-size": 13, fill: "var(--muted)" });
+    tx.textContent = "The chart fills in as you talk";
+    svg.appendChild(tx);
+    renderTable(); return;
+  }
+  const ticks = n <= 8 ? [...Array(n).keys()] : [0, Math.round((n - 1) / 2), n - 1];
+  for (const i of ticks) {
+    const tx = svgEl("text", { x: x(i), y: H - 6, "text-anchor": "middle", "font-size": 11, fill: "var(--muted)" });
+    tx.textContent = "#" + (i + 1); svg.appendChild(tx);
+  }
+  if (selected >= 0 && selected < n) {
+    svg.appendChild(svgEl("line", { x1: x(selected), x2: x(selected), y1: m.t, y2: m.t + ih,
+      stroke: "var(--axis)", "stroke-width": 1, "stroke-dasharray": "3 3" }));
+  }
+  for (const e of EMOTIONS) {
+    const pts = timeline.map((t, i) => `${x(i).toFixed(1)},${y(t.emotions[e]).toFixed(1)}`).join(" ");
+    if (n === 1) {
+      svg.appendChild(svgEl("circle", { cx: x(0), cy: y(timeline[0].emotions[e]), r: 4, fill: color(e) }));
+    } else {
+      svg.appendChild(svgEl("polyline", { points: pts, fill: "none", stroke: color(e), "stroke-width": 2,
+        "stroke-linejoin": "round", "stroke-linecap": "round" }));
+    }
+  }
+  if (hover >= 0 && hover < n) {
+    svg.appendChild(svgEl("line", { x1: x(hover), x2: x(hover), y1: m.t, y2: m.t + ih, stroke: "var(--ink-2)", "stroke-width": 1 }));
+    for (const e of EMOTIONS) {
+      svg.appendChild(svgEl("circle", { cx: x(hover), cy: y(timeline[hover].emotions[e]), r: 4,
+        fill: color(e), stroke: "var(--surface)", "stroke-width": 2 }));
+    }
+  }
+  svg._geom = { x, n, m, iw };
+  renderTable();
+}
+
+function showTip(i) {
+  const tip = $("tip");
+  if (i < 0 || i >= timeline.length) { tip.classList.remove("show"); return; }
+  const t = timeline[i];
+  tip.textContent = "";
+  tip.appendChild(el("div", "t", `#${i + 1} · ${t.user}`));
+  for (const e of EMOTIONS) {
+    const r = el("div", "r"); const k = el("i", "key"); k.style.background = color(e);
+    r.append(k, el("b", null, fmt(t.emotions[e])), el("em", null, e));
+    tip.appendChild(r);
+  }
+  const g = $("chart")._geom; const wrap = $("chartwrap");
+  const px = g.x(i) * (wrap.clientWidth / ($("chart").viewBox.baseVal.width || wrap.clientWidth));
+  const left = px + 12 + 160 > wrap.clientWidth ? px - 12 - tip.offsetWidth : px + 12;
+  tip.style.left = Math.max(0, left) + "px"; tip.style.top = "4px";
+  tip.classList.add("show");
+}
+
+function nearest(evt) {
+  const svg = $("chart"), g = svg._geom;
+  if (!g || !g.n) return -1;
+  const rect = svg.getBoundingClientRect();
+  const px = (evt.clientX - rect.left) * (svg.viewBox.baseVal.width / rect.width);
+  if (g.n === 1) return 0;
+  const i = Math.round(((px - g.m.l) / g.iw) * (g.n - 1));
+  return Math.max(0, Math.min(g.n - 1, i));
+}
+
+function renderTable() {
+  const box = $("tablebox"); box.textContent = "";
+  if (box.hidden) return;
+  const tbl = el("table", "data");
+  const hr = el("tr"); hr.appendChild(el("th", null, "#"));
+  for (const e of EMOTIONS) hr.appendChild(el("th", null, e));
+  const thead = el("thead"); thead.appendChild(hr); tbl.appendChild(thead);
+  const tb = el("tbody");
+  timeline.forEach((t, i) => {
+    const tr = el("tr"); tr.appendChild(el("td", null, String(i + 1)));
+    for (const e of EMOTIONS) tr.appendChild(el("td", null, fmt(t.emotions[e])));
+    tb.appendChild(tr);
+  });
+  tbl.appendChild(tb); box.appendChild(tbl);
+}
+
+// ------------------------------------------------------------ wiring
+function autosize() { const t = $("input"); t.style.height = "auto"; t.style.height = Math.min(160, t.scrollHeight) + "px"; }
+
+function renderAll(info) {
+  $("backend").textContent = info.model ? `${info.backend} · ${info.model}` : "offline rules (no model)";
+  timeline = info.timeline || [];
+  const box = $("messages"); box.textContent = "";
+  if (!info.history.length) showEmpty();
+  // match saved replies to their log records, newest first
+  const replies = info.history.filter((h) => h.role === "assistant").length;
+  let k = timeline.length - replies;
+  for (const h of info.history) {
+    if (h.role === "user") addUser(h.content);
+    else {
+      const idx = k >= 0 && timeline[k] && timeline[k].reply === h.content ? k : -1;
+      addReply(h.content, idx);
+      k++;
+    }
+  }
+  const snap = info.snapshot, last = timeline[timeline.length - 1];
+  if (last && snap.reacting === "none") {        // after a restart, show the last message's reaction from the log
+    snap.reacting = last.reacting; snap.change = last.change;
+  }
+  renderSnapshot(snap);
+  selected = timeline.length - 1;
+  select(selected);
+  scrollDown();
+}
+
+async function load() {
+  try {
+    const r = await fetch("/api/state");
+    renderAll(await r.json());
+  } catch (err) {
+    showEmpty();
+    addNotice("Can't reach the companion. Is app.py still running?", true);
+  }
+}
+
+$("form").addEventListener("submit", (e) => { e.preventDefault(); send($("input").value); });
+$("input").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send($("input").value); }
+});
+$("input").addEventListener("input", autosize);
+$("reset").addEventListener("click", async () => {
+  if (!confirm("Forget everything? Emotions, memories and chat history will be wiped.")) return;
+  const r = await fetch("/api/reset", { method: "POST" });
+  renderAll(await r.json());
+});
+$("tabletoggle").addEventListener("click", () => {
+  const box = $("tablebox"); box.hidden = !box.hidden;
+  $("tabletoggle").textContent = box.hidden ? "Show table" : "Hide table";
+  renderTable();
+});
+const chart = $("chart");
+chart.addEventListener("pointermove", (e) => { hover = nearest(e); renderChart(); showTip(hover); });
+chart.addEventListener("pointerleave", () => { hover = -1; renderChart(); showTip(-1); });
+chart.addEventListener("click", (e) => { const i = nearest(e); if (i >= 0) select(i); });
+chart.addEventListener("keydown", (e) => {
+  if (!timeline.length) return;
+  if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+    e.preventDefault();
+    const base = hover >= 0 ? hover : selected;
+    hover = Math.max(0, Math.min(timeline.length - 1, base + (e.key === "ArrowRight" ? 1 : -1)));
+    renderChart(); showTip(hover);
+  } else if (e.key === "Enter" && hover >= 0) select(hover);
+});
+chart.addEventListener("blur", () => { hover = -1; renderChart(); showTip(-1); });
+new ResizeObserver(() => renderChart()).observe($("chartwrap"));
+
+for (const s of SUGGESTIONS) {
+  const c = el("button", "chip", s); c.type = "button";
+  c.addEventListener("click", () => send(s));
+  $("chips").appendChild(c);
+}
+renderLegend();
+load();
+</script>
+</body>
+</html>

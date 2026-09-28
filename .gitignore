@@ -1,7 +1,19 @@
+# personal chat history and feelings - keep private
 *_state.json
 companion_state.json
+
+# secrets
 .env
+
+# python
 __pycache__/
 *.pyc
 .venv/
+venv/
+
+# mac
+.DS_Store
+
+# chat logs - personal
+logs/
 *.zip

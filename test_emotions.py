@@ -16,8 +16,8 @@ import argparse
 import os
 import tempfile
 
-from companion_v5 import Companion, EMOTIONS
-from llm_backends import LLM, PROVIDERS
+from companion_v5 import Companion, EMOTIONS, style_from_state, usable
+from llm_backends import LLM, PROVIDERS, key_status
 
 # (message, expectations, hours to wait BEFORE this message)
 CONVERSATION = [
@@ -129,6 +129,35 @@ def run_conversation(llm, fast, show_replies):
     passed += ok; total += 1
     print(f"  {'PASS' if ok else 'FAIL'}  recall returns only related memories")
 
+    # 6. names are remembered as facts and survive a restart
+    named, npath = fresh(llm, fast)
+    named.process("your name is alex")
+    named.process("my name is sai")
+    named.save()
+    back = Companion(llm, llm_fast=fast, state_file=npath)
+    ok = (back.known.get("companion_name") or "").lower() == "alex" and \
+         (back.known.get("user_name") or "").lower() == "sai" and "alex" in back.state_text().lower()
+    passed += ok; total += 1
+    print(f"  {'PASS' if ok else 'FAIL'}  remembers its name and yours after a restart "
+          f"(it: {back.known.get('companion_name')}, you: {back.known.get('user_name')})")
+
+    # 7. an apology is passed on to the model as an instruction
+    sorry, _ = fresh(llm, fast)
+    ap, _, h = sorry.process("sorry, i was rude to you earlier")
+    ok = "apologised" in style_from_state(sorry.state, sorry.emo, sorry.social.trust(0), h, ap)
+    passed += ok; total += 1
+    print(f"  {'PASS' if ok else 'FAIL'}  the model is told when you apologise")
+
+    # 8. goodbyes and romantic messages get their own instructions, not an emotion's style
+    for text, word, label in [("byeee", "leaving", "a goodbye gets a warm bye, no clinging"),
+                              ("i love you, be my girlfriend", "romantic", "romance gets a kind, honest answer")]:
+        comp, _ = fresh(llm, fast)
+        ap, _, h = comp.process(text)
+        style = style_from_state(comp.state, comp.emo, comp.social.trust(0), h, ap)
+        ok = word in style and "React to THIS message first" not in style
+        passed += ok; total += 1
+        print(f"  {'PASS' if ok else 'FAIL'}  {label}")
+
     print(f"\n{passed}/{total} checks passed")
     return passed == total
 
@@ -143,7 +172,11 @@ def main():
     _, _, dflt, dflt_fast = PROVIDERS[a.backend]
     main_model = a.model or dflt
     fast_model = a.fast_model or (main_model if a.backend == "ollama" else dflt_fast)
-    print(f"[backend: {a.backend}]\n")
+    print(f"[backend: {a.backend}]")
+    status = key_status(a.backend)
+    if status:
+        print(status)
+    print()
     if a.backend != "offline":                     # make sure the model really answers
         if not LLM(a.backend, fast_model)("Reply with the word ok.", [{"role": "user", "content": "ping"}],
                                       max_tokens=5):

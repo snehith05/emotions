@@ -25,62 +25,6 @@ PROVIDERS = {
 }
 
 
-# ============================================================ API KEYS FROM .env
-HERE = os.path.dirname(os.path.abspath(__file__))
-ENV_FILE = None                                     # which .env file was loaded (for messages)
-
-
-def load_env():
-    """Read KEY=value lines from a .env file next to this code (or in the current folder)
-    into the environment. The file wins over a key set in the terminal or in Windows settings,
-    so an old saved key can't silently override it.
-    The .env file is in .gitignore, so keys never reach GitHub."""
-    global ENV_FILE
-    for folder in (HERE, os.getcwd()):
-        path = os.path.join(folder, ".env")
-        if not os.path.isfile(path):
-            continue
-        with open(path, encoding="utf-8-sig") as f:  # utf-8-sig: ignore the BOM Notepad may add
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith("#") or "=" not in line:
-                    continue
-                if line.startswith("export "):
-                    line = line[7:]
-                name, value = line.split("=", 1)
-                name, value = name.strip(), value.strip()
-                if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
-                    value = value[1:-1]
-                if name and value:
-                    os.environ[name] = value
-        ENV_FILE = path
-        return path
-    return None
-
-
-load_env()
-
-
-def key_status(backend):
-    """One line describing whether the key this backend needs is available. Never shows the key."""
-    env = PROVIDERS.get(backend, ("", "", "", ""))[1]
-    if not env:
-        return None
-    if os.environ.get(env):
-        where = f"from {os.path.basename(ENV_FILE)}" if ENV_FILE else "from the terminal / Windows settings"
-        return f"{env} found ({where})"
-    return (f"WARNING: {env} is missing. Put this line in a file called .env in the project folder:\n"
-            f"    {env}=your-key-here\n"
-            f"  (see .env.example). Until then every reply uses the offline rules.")
-
-
-class MissingKey(RuntimeError):
-    pass
-
-
-_warned = set()
-
-
 def strip_thinking(text):
     """Some models write their reasoning inside <think>...</think>; keep only the answer."""
     return re.sub(r"<think>.*?(</think>|$)", "", text, flags=re.S).strip()
@@ -114,11 +58,7 @@ class LLM:
                     continue
                 body = e.read().decode()[:200] if hasattr(e, "read") else ""
                 print(f"  (model error {e.code}: {body})")
-            except MissingKey as e:                      # say it once, not on every message
-                if str(e) not in _warned:
-                    _warned.add(str(e))
-                    print(f"  (model unavailable: {e} - using offline rules)")
-            except Exception as e:                       # network problem -> offline fallback
+            except Exception as e:                       # network/key problem -> offline fallback
                 print(f"  (model unavailable: {e})")
             return None                                  # caller falls back to offline rules
         return None
@@ -128,7 +68,7 @@ class LLM:
         base, env, _, _ = PROVIDERS[self.backend]
         key = os.environ.get(env, "")
         if not key:
-            raise MissingKey(f"no {env} - add it to the .env file")
+            raise RuntimeError(f"set {env} first")
         payload = {"model": self.model, "max_tokens": max_tokens,
                    "messages": [{"role": "system", "content": system}] + messages}
         if getattr(self, "json_mode", False) and self.backend == "groq":
@@ -164,8 +104,6 @@ class LLM:
 
     def _anthropic(self, system, messages, max_tokens):
         key = os.environ.get("ANTHROPIC_API_KEY", "")
-        if not key:
-            raise MissingKey("no ANTHROPIC_API_KEY - add it to the .env file")
         out = self._post("https://api.anthropic.com/v1/messages",
                          {"model": self.model, "max_tokens": max_tokens,
                           "system": system, "messages": messages},
