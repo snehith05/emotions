@@ -13,7 +13,7 @@ import argparse
 import json
 import os
 
-from companion_v5 import LOG_FILE
+from companion_v6 import LOG_FILE
 
 
 def load(path):
@@ -42,15 +42,25 @@ def show(t, full):
     print(f"  you> {t['user']}")
     tag = "" if t["reply_source"] == "model" else f"   [{t['reply_source']}]"
     print(f"  it>  {t['reply']}{tag}")
-    moved = [f"{k} {v:+.2f}" for k, v in t["change"].items() if abs(v) > 0.01]
-    print(f"  felt: {t['reacting']:<9} moved: {', '.join(moved) or '-'}")
+    theirs = t.get("user_emotions") or {}
+    if theirs:
+        print("  they felt: " + ", ".join(f"{k} {v}/10" for k, v in theirs.items())
+              + ("   [sarcastic]" if ap.get("sarcasm") else ""))
+    moved = [f"{k} {v * 10:+.1f}" for k, v in t["change"].items() if abs(v) > 0.01]
+    print(f"  it felt: {t['reacting']:<9} moved (out of 10): {', '.join(moved) or '-'}")
     if full:
+        if ap.get("intent"):
+            print(f"  intent {ap['intent']}, need {ap.get('need')}"
+                  + (f", meaning: {ap['meaning']}" if ap.get("meaning") else ""))
         print(f"  read by {ap.get('source', '?')}: valence {ap['valence']:+.2f}, warmth {ap['warmth']:+.2f}, "
               f"cause {ap['cause']}, about {ap['about']}, uncertainty {ap['uncertainty']:.2f}, "
               f"apology {ap['apology']}")
         st = t["state"]
         print(f"  state: mood {st['mood']:+.2f}, stress {st['stress']:.2f}, energy {st['energy']:.2f}, "
               f"trust {t['trust']:.2f}")
+        for k, why in (t.get("reasons") or {}).items():
+            if why:
+                print(f"    {k}: {why}")
         if t["recalled"]:
             print("  remembered: " + " | ".join(r["gist"] for r in t["recalled"]))
         for line in t["instructions"]:

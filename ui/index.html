@@ -20,12 +20,17 @@
   --focus: #2a78d6;
   --good-text: #006300;
   --bad-text: #b3261e;
-  /* emotions: validated categorical slots, one identity each */
-  --joy: #eda100;
-  --sadness: #2a78d6;
-  --hurt: #eb6834;
-  --worry: #1baf7a;
-  --affection: #e87ba4;
+  /* emotion families: one hue per family (30 emotions, 8 families) */
+  --bright: #eda100;
+  --warm: #e87ba4;
+  --wonder: #1baf7a;
+  --sad: #2a78d6;
+  --anger: #e34948;
+  --fear: #8a63d2;
+  --self: #b07a3b;
+  --aversion: #7d8a3a;
+  /* chart series: categorical slots, assigned by rank */
+  --s0: #eda100; --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #e87ba4; --s5: #8a63d2;
   /* mood is diverging: two poles around a neutral middle */
   --pos: #2a78d6;
   --neg: #e34948;
@@ -40,7 +45,9 @@
     --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10);
     --user-bubble: #2e2e2b; --focus: #3987e5;
     --good-text: #0ca30c; --bad-text: #e66767;
-    --joy: #c98500; --sadness: #3987e5; --hurt: #d95926; --worry: #199e70; --affection: #d55181;
+    --bright: #c98500; --warm: #d55181; --wonder: #199e70; --sad: #3987e5; --anger: #e66767;
+    --fear: #9b7be0; --self: #c08a4c; --aversion: #95a24d;
+    --s0: #c98500; --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #d55181; --s5: #9b7be0;
     --pos: #3987e5; --neg: #e66767; --meter: #c3c2b7; --track: #2c2c2a;
   }
 }
@@ -51,7 +58,9 @@
   --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10);
   --user-bubble: #2e2e2b; --focus: #3987e5;
   --good-text: #0ca30c; --bad-text: #e66767;
-  --joy: #c98500; --sadness: #3987e5; --hurt: #d95926; --worry: #199e70; --affection: #d55181;
+  --bright: #c98500; --warm: #d55181; --wonder: #199e70; --sad: #3987e5; --anger: #e66767;
+  --fear: #9b7be0; --self: #c08a4c; --aversion: #95a24d;
+  --s0: #c98500; --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #d55181; --s5: #9b7be0;
   --pos: #3987e5; --neg: #e66767; --meter: #c3c2b7; --track: #2c2c2a;
 }
 
@@ -152,9 +161,21 @@ textarea {
 .hint { font-size: 13px; color: var(--muted); margin: 0; }
 
 /* emotion bars */
-.emo { display: grid; grid-template-columns: 92px 1fr 44px 52px; align-items: center; gap: 10px; padding: 4px 0; }
+.emo { display: grid; grid-template-columns: 118px 1fr 44px 52px; align-items: center; gap: 4px 10px; padding: 4px 0; }
 .emo .name { display: flex; align-items: center; gap: 7px; font-size: 14px; }
 .emo.reacting .name { font-weight: 650; }
+.emo .reason { grid-column: 1 / -1; font-size: 12px; color: var(--muted); margin: -2px 0 2px 15px; }
+
+/* their feelings: 10-step meters, like a 1-10 scale */
+.them { display: grid; grid-template-columns: 118px 1fr 78px; align-items: center; gap: 10px; padding: 4px 0; }
+.them .name { font-size: 14px; }
+.steps { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; }
+.steps i { height: 10px; border-radius: 2px; background: var(--track); }
+.them .lvl { font-size: 13px; font-variant-numeric: tabular-nums; color: var(--ink-2); text-align: right; }
+.flags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.flags span { font-size: 12px; border: 1px solid var(--ring); border-radius: 999px; padding: 1px 9px; color: var(--ink-2); }
+.flags span.hot { border-color: var(--anger); color: var(--ink); }
+.meaning { font-size: 13px; color: var(--ink-2); margin: 8px 0 0; }
 .bar { height: 8px; background: var(--track); border-radius: 4px; overflow: hidden; }
 .bar > i { display: block; height: 100%; border-radius: 4px; transition: width .6s ease; }
 .val { text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; }
@@ -260,7 +281,12 @@ ul.mem .dot { transform: translateY(1px); }
 
   <aside class="inner" aria-label="Inner state">
     <div class="card">
-      <h3>Feeling now</h3>
+      <h3>How you seem to feel <span class="right" id="themsrc"></span></h3>
+      <div id="them"><p class="hint">Each message is read for what you feel and how strongly, from 1 (slightly) to 10 (extremely).</p></div>
+    </div>
+
+    <div class="card">
+      <h3>What it feels <span class="right"><button class="linkbtn" id="alltoggle" type="button">Show all 30</button></span></h3>
       <div id="emotions"></div>
       <div class="reactline" id="reactline"></div>
     </div>
@@ -274,7 +300,7 @@ ul.mem .dot { transform: translateY(1px); }
       <h3>Emotions over time <span class="right"><button class="linkbtn" id="tabletoggle" type="button">Show table</button></span></h3>
       <div class="legend" id="legend"></div>
       <div class="chartwrap" id="chartwrap">
-        <svg id="chart" tabindex="0" role="img" aria-label="Line chart of the five emotions after each message. Use left and right arrow keys to move between messages."></svg>
+        <svg id="chart" tabindex="0" role="img" aria-label="Line chart of its strongest emotions after each message, on a 0 to 10 scale. Use left and right arrow keys to move between messages."></svg>
         <div class="tip" id="tip"></div>
       </div>
       <div class="tablebox" id="tablebox" hidden></div>
@@ -295,15 +321,30 @@ ul.mem .dot { transform: translateY(1px); }
 
 <script>
 "use strict";
-const EMOTIONS = ["joy", "sadness", "hurt", "worry", "affection"];
+const FAMILY = {
+  joy: "bright", love: "warm", excitement: "bright", contentment: "bright", gratitude: "warm",
+  hope: "bright", pride: "bright", admiration: "warm", trust: "warm", curiosity: "wonder",
+  sadness: "sad", grief: "sad", loneliness: "sad", disappointment: "sad", regret: "sad",
+  anger: "anger", frustration: "anger", hatred: "anger", jealousy: "anger", envy: "anger",
+  fear: "fear", anxiety: "fear", panic: "fear", guilt: "self", shame: "self",
+  disgust: "aversion", surprise: "wonder", confusion: "wonder", boredom: "aversion", awe: "wonder",
+};
+const EMOTIONS = Object.keys(FAMILY);
 const SUGGESTIONS = [
-  "I got the job!! I'm so happy",
+  "I GOT THE JOB!!! I'm sooo happy",
+  "kinda happy today i guess",
+  "oh great, my laptop crashed again. just perfect.",
   "I'm scared about my exam tomorrow",
-  "I failed my exam today, I feel terrible",
   "you're useless, that was a stupid answer",
   "sorry, I was rude earlier",
+  "chatgpt is way better than you",
+  "i'll talk to you more if you stop being so dramatic, deal?",
   "are you real? do you actually feel things?",
 ];
+const intensity = (n) => n <= 2 ? "slightly" : n <= 4 ? "a bit" : n <= 6 ? "quite" : n <= 8 ? "very" : "extremely";
+const lvl = (v) => Math.round(v * 10);                 // 0..1 -> 0..10
+const lvlText = (v) => (v * 10).toFixed(1);
+let showAll = false;
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, text) => {
   const n = document.createElement(tag);
@@ -311,7 +352,7 @@ const el = (tag, cls, text) => {
   if (text !== undefined) n.textContent = text;
   return n;
 };
-const color = (e) => `var(--${e})`;
+const color = (e) => `var(--${FAMILY[e] || "axis"})`;
 const fmt = (x, d = 2) => Number(x).toFixed(d);
 const signed = (x) => (x >= 0 ? "+" : "−") + Math.abs(x).toFixed(2);
 
@@ -383,10 +424,13 @@ async function send(text) {
   tb.append(el("span", null, "●"), el("span", null, " ●"), el("span", null, " ●"));
   typing.appendChild(tb);
   $("messages").appendChild(typing); scrollDown();
+  // a person takes a moment to read and type: show the dots for at least 1-1.5 s
+  const minWait = new Promise((ok) => setTimeout(ok, 1000 + Math.random() * 500));
   try {
     const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" },
                                          body: JSON.stringify({ message: text }) });
     const data = await r.json();
+    await minWait;
     typing.remove();
     if (!r.ok) throw new Error(data.error || r.statusText);
     timeline.push(data.turn);
@@ -403,11 +447,51 @@ async function send(text) {
 }
 
 // ------------------------------------------------------------ inner state
+function renderThem(r, source) {
+  const box = $("them"); box.textContent = "";
+  $("themsrc").textContent = source ? `read by ${source}` : "";
+  if (!r || (!r.intent && !Object.keys(r.user_emotions || {}).length)) {
+    box.appendChild(el("p", "hint", "Each message is read for what you feel and how strongly, from 1 (slightly) to 10 (extremely)."));
+    return;
+  }
+  const ue = r.user_emotions || {};
+  if (!Object.keys(ue).length) box.appendChild(el("p", "hint", "No clear emotion in your last message."));
+  for (const [e, n] of Object.entries(ue)) {
+    const row = el("div", "them");
+    const name = el("div", "name");
+    const d = el("i", "dot"); d.style.background = color(e); d.style.display = "inline-block"; d.style.marginRight = "7px";
+    name.append(d, document.createTextNode(e));
+    const steps = el("div", "steps");
+    steps.setAttribute("role", "meter"); steps.setAttribute("aria-label", `${e}: ${n} out of 10`);
+    steps.setAttribute("aria-valuemin", "0"); steps.setAttribute("aria-valuemax", "10"); steps.setAttribute("aria-valuenow", n);
+    for (let i = 1; i <= 10; i++) {
+      const c = el("i"); if (i <= n) c.style.background = color(e);
+      steps.appendChild(c);
+    }
+    row.append(name, steps, el("div", "lvl", `${n}/10 · ${intensity(n)}`));
+    box.appendChild(row);
+  }
+  const flags = el("div", "flags");
+  if (r.intent) flags.appendChild(el("span", null, "intent: " + r.intent.replaceAll("_", " ")));
+  if (r.need && r.need !== "none") flags.appendChild(el("span", null, "needs: " + r.need.replaceAll("_", " ")));
+  if (r.sarcasm) flags.appendChild(el("span", "hot", "sarcastic"));
+  if (r.joking) flags.appendChild(el("span", null, "joking"));
+  box.appendChild(flags);
+  if (r.meaning) box.appendChild(el("p", "meaning", "Really means: " + r.meaning));
+}
+
+let lastSnap = null;
 function renderSnapshot(s) {
+  lastSnap = s;
   const box = $("emotions"); box.textContent = "";
-  for (const e of EMOTIONS) {
+  const reasons = s.reasons || {};
+  const list = EMOTIONS.filter((e) => showAll || (s.emotions[e] || 0) >= 0.05)
+                       .sort((a, b) => (s.emotions[b] || 0) - (s.emotions[a] || 0));
+  if (!list.length) box.appendChild(el("p", "hint", "Calm - nothing above 0.5/10 right now."));
+  for (const e of list) {
     const v = s.emotions[e] || 0, ch = s.change[e] || 0;
-    const row = el("div", "emo" + (s.reacting === e ? " reacting" : ""));
+    const reacting = (s.reacting_all || [s.reacting]).includes(e);
+    const row = el("div", "emo" + (reacting ? " reacting" : ""));
     const name = el("div", "name");
     const d = el("i", "dot"); d.style.background = color(e);
     name.append(d, document.createTextNode(e));
@@ -415,15 +499,18 @@ function renderSnapshot(s) {
     fill.style.width = Math.round(v * 100) + "%"; fill.style.background = color(e);
     bar.appendChild(fill);
     bar.setAttribute("role", "meter"); bar.setAttribute("aria-label", e);
-    bar.setAttribute("aria-valuemin", "0"); bar.setAttribute("aria-valuemax", "1"); bar.setAttribute("aria-valuenow", fmt(v));
+    bar.setAttribute("aria-valuemin", "0"); bar.setAttribute("aria-valuemax", "10"); bar.setAttribute("aria-valuenow", lvlText(v));
     const delta = el("div", "delta" + (ch > 0.01 ? " up" : ch < -0.01 ? " down" : ""),
-                     Math.abs(ch) > 0.01 ? (ch > 0 ? "▲ " : "▼ ") + Math.abs(ch).toFixed(2) : "");
-    row.append(name, bar, el("div", "val", fmt(v)), delta);
+                     Math.abs(ch) > 0.01 ? (ch > 0 ? "▲ " : "▼ ") + Math.abs(ch * 10).toFixed(1) : "");
+    row.append(name, bar, el("div", "val", lvlText(v)), delta);
+    if (reasons[e] && v >= 0.05) row.appendChild(el("div", "reason", reasons[e]));
     box.appendChild(row);
   }
-  $("reactline").textContent = s.reacting && s.reacting !== "none"
-    ? `Your last message made it feel ${s.reacting}.`
+  const all = (s.reacting_all || []).filter(Boolean);
+  $("reactline").textContent = all.length
+    ? `Your last message made it feel ${all.join(", ")}.`
     : s.turns ? "Your last message didn't stir a strong emotion." : "";
+  renderThem(s.reading, timeline.length ? (timeline[timeline.length - 1].appraisal || {}).source : null);
 
   const m = $("meters"); m.textContent = "";
   // mood: diverging around 0
@@ -438,11 +525,10 @@ function renderSnapshot(s) {
   const sc = el("div", "scale"); sc.append(el("span", null, "low"), el("span", null, "neutral"), el("span", null, "bright"));
   mood.append(t1, db, sc); m.appendChild(mood);
   const meters = [["stress", s.state.stress, 1], ["energy", s.state.energy, 1],
-                  ["curiosity", s.state.curiosity, 2], ["boredom", s.state.boredom, 1],
-                  ["trust in you", s.trust, 1]];
+                  ["trust in you", s.emotions.trust || 0, 1], ["fondness (love)", s.emotions.love || 0, 1]];
   for (const [label, v, max] of meters) {
     const w = el("div", "meter");
-    const t = el("div", "top2"); t.append(el("span", null, label), el("b", null, fmt(v)));
+    const t = el("div", "top2"); t.append(el("span", null, label), el("b", null, `${lvlText(v / max)}/10`));
     const bar = el("div", "bar"); const f = el("i"); f.style.width = Math.round(Math.min(1, v / max) * 100) + "%";
     bar.appendChild(f); w.append(t, bar); m.appendChild(w);
   }
@@ -504,19 +590,39 @@ function renderWhy() {
   cell("caused by", ap.cause);
   cell("about", ap.about);
   cell("apology", ap.apology ? "yes" : "no");
-  cell("asks what it is", ap.question_about_me ? "yes" : "no");
+  cell("sarcastic", ap.sarcasm ? "yes" : "no");
+  if (ap.intent) cell("intent", ap.intent.replaceAll("_", " "));
+  if (ap.need) cell("needs", ap.need.replaceAll("_", " "));
   box.appendChild(kv);
+  if (ap.meaning) box.appendChild(el("p", "meaning", "Really means: " + ap.meaning));
 
-  box.appendChild(el("div", "sect", t.reacting !== "none" ? `It felt ${t.reacting}. Emotions that moved:` : "Emotions that moved:"));
-  const mv = el("div", "moved");
-  const changes = EMOTIONS.filter((e) => Math.abs(t.change[e]) > 0.01);
-  if (!changes.length) mv.appendChild(el("span", null, "nothing much"));
-  for (const e of changes) {
-    const s = el("span"); const d = el("i", "dot"); d.style.background = color(e);
-    s.append(d, document.createTextNode(`${e} ${signed(t.change[e])}`));
-    mv.appendChild(s);
+  const ue = t.user_emotions || ap.user_emotions || {};
+  if (Object.keys(ue).length) {
+    box.appendChild(el("div", "sect", "You seemed to feel:"));
+    const mv = el("div", "moved");
+    for (const [e, n] of Object.entries(ue)) {
+      const s = el("span"); const d = el("i", "dot"); d.style.background = color(e);
+      s.append(d, document.createTextNode(`${e} ${n}/10 (${intensity(n)})`));
+      mv.appendChild(s);
+    }
+    box.appendChild(mv);
   }
-  box.appendChild(mv);
+
+  const felt = (t.reacting_all || []).filter(Boolean);
+  box.appendChild(el("div", "sect", felt.length ? `It felt ${felt.join(", ")}. What moved (out of 10), and why:` : "What moved (out of 10):"));
+  const changes = EMOTIONS.filter((e) => Math.abs(t.change[e] || 0) > 0.01)
+                          .sort((a, b) => Math.abs(t.change[b]) - Math.abs(t.change[a]));
+  if (!changes.length) box.appendChild(el("div", "moved")).appendChild(el("span", null, "nothing much"));
+  const ul = el("ul", "mem");
+  for (const e of changes) {
+    const li = el("li"); const d = el("i", "dot"); d.style.background = color(e);
+    const ch = t.change[e] * 10;
+    const why = (t.reasons || {})[e];
+    li.append(d, el("span", "str", (ch >= 0 ? "+" : "−") + Math.abs(ch).toFixed(1)),
+              el("span", null, e + (why && ch > 0 ? ` - ${why}` : ch < 0 ? " - faded" : "")));
+    ul.appendChild(li);
+  }
+  box.appendChild(ul);
 
   if (t.recalled && t.recalled.length) {
     box.appendChild(el("div", "sect", "Remembered from before:"));
@@ -532,10 +638,20 @@ function renderWhy() {
 }
 
 // ------------------------------------------------------------ chart
+// 30 lines would be unreadable: plot the emotions that peaked highest in this conversation
+let series = [];
+function pickSeries() {
+  const peak = {};
+  for (const t of timeline) for (const e of EMOTIONS) peak[e] = Math.max(peak[e] || 0, (t.emotions || {})[e] || 0);
+  series = EMOTIONS.filter((e) => peak[e] >= 0.1).sort((a, b) => peak[b] - peak[a]).slice(0, 6);
+}
+const scolor = (e) => `var(--s${series.indexOf(e)})`;
+
 function renderLegend() {
   const lg = $("legend"); lg.textContent = "";
-  for (const e of EMOTIONS) {
-    const s = el("span"); const k = el("i", "key"); k.style.background = color(e);
+  if (!series.length) { lg.appendChild(el("span", null, "its 6 strongest emotions will show here")); return; }
+  for (const e of series) {
+    const s = el("span"); const k = el("i", "key"); k.style.background = scolor(e);
     s.append(k, document.createTextNode(e)); lg.appendChild(s);
   }
 }
@@ -549,6 +665,7 @@ function renderChart() {
   const m = { l: 30, r: 10, t: 8, b: 22 };
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
   svg.textContent = "";
+  pickSeries(); renderLegend();
   const iw = W - m.l - m.r, ih = H - m.t - m.b;
   const n = timeline.length;
   const x = (i) => m.l + (n <= 1 ? iw / 2 : (i / (n - 1)) * iw);
@@ -558,7 +675,7 @@ function renderChart() {
     svg.appendChild(svgEl("line", { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v),
       stroke: v === 0 ? "var(--axis)" : "var(--grid)", "stroke-width": 1 }));
     const tx = svgEl("text", { x: m.l - 6, y: y(v) + 4, "text-anchor": "end", "font-size": 11, fill: "var(--muted)" });
-    tx.textContent = v; svg.appendChild(tx);
+    tx.textContent = v * 10; svg.appendChild(tx);
   }
   if (!n) {
     const tx = svgEl("text", { x: m.l + iw / 2, y: m.t + ih / 2, "text-anchor": "middle", "font-size": 13, fill: "var(--muted)" });
@@ -575,20 +692,21 @@ function renderChart() {
     svg.appendChild(svgEl("line", { x1: x(selected), x2: x(selected), y1: m.t, y2: m.t + ih,
       stroke: "var(--axis)", "stroke-width": 1, "stroke-dasharray": "3 3" }));
   }
-  for (const e of EMOTIONS) {
-    const pts = timeline.map((t, i) => `${x(i).toFixed(1)},${y(t.emotions[e]).toFixed(1)}`).join(" ");
+  const val = (t, e) => (t.emotions || {})[e] || 0;
+  for (const e of series) {
+    const pts = timeline.map((t, i) => `${x(i).toFixed(1)},${y(val(t, e)).toFixed(1)}`).join(" ");
     if (n === 1) {
-      svg.appendChild(svgEl("circle", { cx: x(0), cy: y(timeline[0].emotions[e]), r: 4, fill: color(e) }));
+      svg.appendChild(svgEl("circle", { cx: x(0), cy: y(val(timeline[0], e)), r: 4, fill: scolor(e) }));
     } else {
-      svg.appendChild(svgEl("polyline", { points: pts, fill: "none", stroke: color(e), "stroke-width": 2,
+      svg.appendChild(svgEl("polyline", { points: pts, fill: "none", stroke: scolor(e), "stroke-width": 2,
         "stroke-linejoin": "round", "stroke-linecap": "round" }));
     }
   }
   if (hover >= 0 && hover < n) {
     svg.appendChild(svgEl("line", { x1: x(hover), x2: x(hover), y1: m.t, y2: m.t + ih, stroke: "var(--ink-2)", "stroke-width": 1 }));
-    for (const e of EMOTIONS) {
-      svg.appendChild(svgEl("circle", { cx: x(hover), cy: y(timeline[hover].emotions[e]), r: 4,
-        fill: color(e), stroke: "var(--surface)", "stroke-width": 2 }));
+    for (const e of series) {
+      svg.appendChild(svgEl("circle", { cx: x(hover), cy: y(val(timeline[hover], e)), r: 4,
+        fill: scolor(e), stroke: "var(--surface)", "stroke-width": 2 }));
     }
   }
   svg._geom = { x, n, m, iw };
@@ -601,9 +719,9 @@ function showTip(i) {
   const t = timeline[i];
   tip.textContent = "";
   tip.appendChild(el("div", "t", `#${i + 1} · ${t.user}`));
-  for (const e of EMOTIONS) {
-    const r = el("div", "r"); const k = el("i", "key"); k.style.background = color(e);
-    r.append(k, el("b", null, fmt(t.emotions[e])), el("em", null, e));
+  for (const e of series) {
+    const r = el("div", "r"); const k = el("i", "key"); k.style.background = scolor(e);
+    r.append(k, el("b", null, lvlText((t.emotions || {})[e] || 0)), el("em", null, e));
     tip.appendChild(r);
   }
   const g = $("chart")._geom; const wrap = $("chartwrap");
@@ -627,13 +745,15 @@ function renderTable() {
   const box = $("tablebox"); box.textContent = "";
   if (box.hidden) return;
   const tbl = el("table", "data");
+  // every emotion that reached 0.5/10 at some point, not just the plotted ones
+  const cols = EMOTIONS.filter((e) => timeline.some((t) => ((t.emotions || {})[e] || 0) >= 0.05));
   const hr = el("tr"); hr.appendChild(el("th", null, "#"));
-  for (const e of EMOTIONS) hr.appendChild(el("th", null, e));
+  for (const e of cols) hr.appendChild(el("th", null, e));
   const thead = el("thead"); thead.appendChild(hr); tbl.appendChild(thead);
   const tb = el("tbody");
   timeline.forEach((t, i) => {
     const tr = el("tr"); tr.appendChild(el("td", null, String(i + 1)));
-    for (const e of EMOTIONS) tr.appendChild(el("td", null, fmt(t.emotions[e])));
+    for (const e of cols) tr.appendChild(el("td", null, lvlText((t.emotions || {})[e] || 0)));
     tb.appendChild(tr);
   });
   tbl.appendChild(tb); box.appendChild(tbl);
@@ -647,6 +767,10 @@ function renderAll(info) {
   timeline = info.timeline || [];
   const box = $("messages"); box.textContent = "";
   if (!info.history.length) showEmpty();
+  if (info.warning) {
+    $("backend").textContent += " · no key - offline";
+    addNotice(info.warning, true);
+  }
   // match saved replies to their log records, newest first
   const replies = info.history.filter((h) => h.role === "assistant").length;
   let k = timeline.length - replies;
@@ -660,7 +784,7 @@ function renderAll(info) {
   }
   const snap = info.snapshot, last = timeline[timeline.length - 1];
   if (last && snap.reacting === "none") {        // after a restart, show the last message's reaction from the log
-    snap.reacting = last.reacting; snap.change = last.change;
+    snap.reacting = last.reacting; snap.reacting_all = last.reacting_all; snap.change = last.change;
   }
   renderSnapshot(snap);
   selected = timeline.length - 1;
@@ -687,6 +811,11 @@ $("reset").addEventListener("click", async () => {
   if (!confirm("Forget everything? Emotions, memories and chat history will be wiped.")) return;
   const r = await fetch("/api/reset", { method: "POST" });
   renderAll(await r.json());
+});
+$("alltoggle").addEventListener("click", () => {
+  showAll = !showAll;
+  $("alltoggle").textContent = showAll ? "Show active only" : "Show all 30";
+  if (lastSnap) renderSnapshot(lastSnap);
 });
 $("tabletoggle").addEventListener("click", () => {
   const box = $("tablebox"); box.hidden = !box.hidden;

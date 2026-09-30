@@ -1,5 +1,5 @@
 """
-Web UI for the emotional companion (companion_v5).
+Web UI for the emotional companion (companion_v6).
 
     python app.py                                   # offline rules, no key needed
     python app.py --backend groq                    # needs GROQ_API_KEY
@@ -11,7 +11,7 @@ inner state on the right (emotions, mood, trust, emotions over time, memories),
 and a "why" panel that explains any reply you click.
 
 Uses only the Python standard library for the server - nothing extra to install.
-Same save file and log as companion_v5.py, so the CLI and the UI share one companion.
+Same save file and log as companion_v6.py, so the CLI and the UI share one companion.
 """
 import argparse
 import json
@@ -20,7 +20,7 @@ import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from companion_v5 import Companion, SAVE_FILE, LOG_FILE
+from companion_v6 import Companion, SAVE_FILE, LOG_FILE, VERSION
 from llm_backends import LLM, PROVIDERS, key_status
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -29,7 +29,8 @@ MAX_TIMELINE = 300
 
 
 def read_timeline(path, limit=MAX_TIMELINE):
-    """Turn records from the log since the last reset, so the chart survives a restart."""
+    """Turn records from the log since the last reset, so the chart survives a restart.
+    Records from older versions (other emotions) are skipped."""
     if not path or not os.path.exists(path):
         return []
     rows = []
@@ -41,7 +42,7 @@ def read_timeline(path, limit=MAX_TIMELINE):
                 continue
             if rec.get("event") == "reset":
                 rows = []
-            elif "turn" in rec:
+            elif "turn" in rec and rec.get("version") == VERSION:
                 rows.append(rec)
     return rows[-limit:]
 
@@ -53,6 +54,10 @@ class App:
         self.main_model = args.model or dflt
         self.fast_model = args.fast_model or (self.main_model if args.backend == "ollama" else dflt_fast)
         self.log_file = None if args.no_log else args.log
+        status = key_status(args.backend) or ""
+        self.warning = (f"No {PROVIDERS[args.backend][1]} found, so every reply comes from the fixed offline "
+                        f"rules, not the model. Put {PROVIDERS[args.backend][1]}=your-key in a file named .env "
+                        f"in the project folder and restart app.py.") if status.startswith("WARNING") else None
         self.lock = threading.Lock()
         self.companion = self.make()
         self.timeline = read_timeline(self.log_file)
@@ -66,6 +71,7 @@ class App:
         c = self.companion
         return {"backend": self.args.backend,
                 "model": None if self.args.backend == "offline" else self.main_model,
+                "warning": self.warning,
                 "snapshot": c.snapshot(),
                 "history": c.history[-40:],
                 "timeline": self.timeline}
@@ -174,6 +180,10 @@ def main():
     a = p.parse_args()
 
     status = key_status(a.backend)
+    if status and status.startswith("WARNING"):
+        # don't quietly run on keyword rules while the page says "groq" - that only looks like a dumb AI
+        raise SystemExit(status.replace("Until then every reply uses the offline rules.",
+                                        "Stopping here. To try without a model, run: python app.py"))
     if status:
         print(status)
     app = App(a)
