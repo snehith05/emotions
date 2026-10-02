@@ -287,6 +287,11 @@ def run_conversation(llm, fast, show_replies):
              for t in ("i have a crush on someone", "explain how a transformer works")}
     report(list(sizes.values()) == ["short", "detailed"], f"reply length fits the message ({sizes})")
 
+    # 27. every included character has a profile picture, and only listed ids can be looked up
+    from persona import avatar_file
+    pics = {p: bool(load_persona(p).describe()["avatar_v"]) and avatar_file(p) is not None for p in ("companion", "gandhi")}
+    report(all(pics.values()) and avatar_file("../app.py") is None, f"profile pictures ({pics})")
+
     print(f"\n{passed}/{total} checks passed")
     return passed == total
 

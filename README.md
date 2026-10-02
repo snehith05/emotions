@@ -110,7 +110,10 @@ personas/gandhi/
     data/                      the person's own words: .txt / .md, or .jsonl with {"text": ...}
     persona.json               who they are and how they feel (hand-written, optional)
     persona.generated.json     the same, worked out from data/ by a model
+    avatar.svg                 their profile picture in the chat (.png .jpg .webp .gif .svg; optional)
 ```
+
+In the web UI, the person you are talking to appears at the top left of the chat, like a messaging app: their picture, their name, and a status line showing how they feel right now ("online · feeling a bit hopeful"). It changes to "typing…" while they reply. Without an `avatar` file, the chat shows their initials on a colour chosen from their name. The default companion's picture is `personas/companion/avatar.svg`. Both included pictures are original drawings.
 
 Make your own:
 

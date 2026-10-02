@@ -8,8 +8,11 @@ A persona is a folder:
                                {"text": ...} per line (writings, letters, speeches, interviews, chats)
         persona.json           who they are and how they feel - written by hand (optional)
         persona.generated.json the same, worked out from data/ by `python persona.py build <id>`
+        avatar.png             their profile picture in the chat (.png .jpg .webp .gif or .svg; optional -
+                               without one the chat shows their initials)
 
 persona.json wins over persona.generated.json, so hand edits survive a rebuild.
+The default companion's picture is personas/companion/avatar.svg.
 
 What the persona changes:
     knowledge    their writings are cut into passages; the ones related to each message are found
@@ -214,7 +217,13 @@ class Persona:
                 "default_intensity": self.profile["default_intensity"],
                 "passages": len(kb) if kb else 0, "words": kb.words() if kb else 0,
                 "files": kb.files if kb else [], "greeting": self.profile.get("greeting", ""),
-                "suggestions": [str(x) for x in (self.profile.get("suggestions") or [])][:8]}
+                "suggestions": [str(x) for x in (self.profile.get("suggestions") or [])][:8],
+                "avatar_v": self.avatar_version()}
+
+    def avatar_version(self):
+        """The picture's modification time (so the browser refetches it when it changes), or None."""
+        path = _avatar_in(self.folder or os.path.join(PERSONA_DIR, DEFAULT_ID))
+        return int(os.path.getmtime(path)) if path else None
 
 
 def _isnum(v):
@@ -245,12 +254,33 @@ def load_persona(pid=None):
     return Persona(os.path.basename(os.path.normpath(folder)), folder, profile)
 
 
+AVATAR_TYPES = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp",
+                ".gif": "image/gif", ".svg": "image/svg+xml"}
+
+
+def _avatar_in(folder):
+    for ext in AVATAR_TYPES:
+        path = os.path.join(folder, "avatar" + ext)
+        if os.path.isfile(path):
+            return path
+    return None
+
+
+def avatar_file(pid):
+    """(path, content type) of a listed persona's profile picture, or None. Only ids from
+    list_personas() are looked up, so a request can't reach other files."""
+    if pid not in {p["id"] for p in list_personas()}:
+        return None
+    path = _avatar_in(os.path.join(PERSONA_DIR, pid))
+    return (path, AVATAR_TYPES[os.path.splitext(path)[1].lower()]) if path else None
+
+
 def list_personas():
     out = [{"id": DEFAULT_ID, "name": "Companion (default)"}]
     if os.path.isdir(PERSONA_DIR):
         for pid in sorted(os.listdir(PERSONA_DIR)):
             folder = os.path.join(PERSONA_DIR, pid)
-            if os.path.isdir(folder):
+            if os.path.isdir(folder) and pid != DEFAULT_ID:     # personas/companion only holds its picture
                 prof = _read_json(os.path.join(folder, "persona.generated.json"))
                 prof.update(_read_json(os.path.join(folder, "persona.json")))
                 out.append({"id": pid, "name": prof.get("name") or pid.title()})

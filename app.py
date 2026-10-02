@@ -22,10 +22,11 @@ import os
 import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import unquote, urlsplit
 
 from companion_v7 import Companion7, LOG_FILE, VERSION, EMOTIONS, state_path
 from llm_backends import LLM, PROVIDERS, key_status
-from persona import load_persona, list_personas, DEFAULT_ID
+from persona import load_persona, list_personas, avatar_file, DEFAULT_ID
 from voices import load_voice, list_voices
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -166,8 +167,27 @@ def make_handler(app):
                 self.wfile.write(body)
             elif self.path == "/api/state":
                 self.send_json(app.info())
+            elif self.path.startswith("/api/avatar/"):
+                self.send_avatar(unquote(urlsplit(self.path).path[len("/api/avatar/"):]))
             else:
                 self.send_error(404)
+
+        def send_avatar(self, pid):
+            """A persona's profile picture (versioned by ?v=, so it can be cached)."""
+            found = avatar_file(pid)
+            if not found:
+                self.send_error(404)
+                return
+            path, ctype = found
+            with open(path, "rb") as f:
+                body = f.read()
+            self.send_response(200)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "public, max-age=86400")
+            self.send_header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'")
+            self.end_headers()
+            self.wfile.write(body)
 
         def do_POST(self):
             try:

@@ -19,6 +19,8 @@
   --user-bubble: #ecebe5;
   --focus: #2a78d6;
   --good-text: #006300;
+  --online: #1fb35a;
+  --online-text: #0f7a3b;
   --bad-text: #b3261e;
   /* emotion families: one hue per family (30 emotions, 8 families) */
   --bright: #eda100;
@@ -44,7 +46,7 @@
     --ink: #ffffff; --ink-2: #c3c2b7; --muted: #9a988f;
     --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10);
     --user-bubble: #2e2e2b; --focus: #3987e5;
-    --good-text: #0ca30c; --bad-text: #e66767;
+    --good-text: #0ca30c; --bad-text: #e66767; --online: #2bc46a; --online-text: #4ade80;
     --bright: #c98500; --warm: #d55181; --wonder: #199e70; --sad: #3987e5; --anger: #e66767;
     --fear: #9b7be0; --self: #c08a4c; --aversion: #95a24d;
     --s0: #c98500; --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #d55181; --s5: #9b7be0;
@@ -57,7 +59,7 @@
   --ink: #ffffff; --ink-2: #c3c2b7; --muted: #9a988f;
   --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10);
   --user-bubble: #2e2e2b; --focus: #3987e5;
-  --good-text: #0ca30c; --bad-text: #e66767;
+  --good-text: #0ca30c; --bad-text: #e66767; --online: #2bc46a; --online-text: #4ade80;
   --bright: #c98500; --warm: #d55181; --wonder: #199e70; --sad: #3987e5; --anger: #e66767;
   --fear: #9b7be0; --self: #c08a4c; --aversion: #95a24d;
   --s0: #c98500; --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #d55181; --s5: #9b7be0;
@@ -100,6 +102,28 @@ button { cursor: pointer; }
   height: calc(100% - 57px);
 }
 .chat { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--ring); }
+
+/* ---------- chat header: who you're talking to ---------- */
+.chathead {
+  display: flex; align-items: center; gap: 12px; padding: 10px 24px;
+  border-bottom: 1px solid var(--ring); background: var(--surface);
+}
+.pfpwrap { position: relative; flex: none; }
+.pfp {
+  width: 44px; height: 44px; border-radius: 50%; overflow: hidden; display: grid; place-items: center;
+  background: var(--track); color: #fff; font-weight: 650; font-size: 16px; letter-spacing: .02em;
+  box-shadow: 0 1px 3px rgba(0,0,0,.14); user-select: none;
+}
+.pfp img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pfp.big { width: 96px; height: 96px; font-size: 34px; margin: 0 auto 14px; box-shadow: 0 6px 22px rgba(0,0,0,.14); }
+.online {
+  position: absolute; right: 0; bottom: 1px; width: 12px; height: 12px; border-radius: 50%;
+  background: var(--online); border: 2px solid var(--surface);
+}
+.who { min-width: 0; }
+.whoname { font-weight: 650; font-size: 15.5px; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.whostatus { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.whostatus.typing { color: var(--online-text); }
 .inner { overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
 
 /* ---------- chat ---------- */
@@ -297,6 +321,13 @@ details.limits summary { cursor: pointer; font-size: 13px; color: var(--ink-2); 
 
 <main class="layout">
   <section class="chat" aria-label="Conversation">
+    <div class="chathead">
+      <div class="pfpwrap" id="pfpwrap"></div>
+      <div class="who">
+        <div class="whoname" id="whoname">Companion</div>
+        <div class="whostatus" id="whostatus" aria-live="polite">online</div>
+      </div>
+    </div>
     <div class="messages" id="messages" aria-live="polite"></div>
     <div class="composer">
       <div class="chips" id="chips"><span class="label">Try:</span></div>
@@ -419,6 +450,79 @@ const PERSONA_CHIPS = (p) => (p.suggestions && p.suggestions.length) ? p.suggest
   `are you really ${p.short}?`, "I failed my exam today", "people keep lying to me"];
 const DIAL_WORDS = (n) => n === 0 ? "off - no emotions" : n <= 2 ? "very restrained" : n <= 4 ? "reserved"
   : n <= 6 ? "a typical person" : n <= 8 ? "expressive" : "intensely emotional";
+
+// ------------------------------------------------------------ profile picture + status
+const FEEL_WORD = {
+  joy: "happy", love: "affectionate", excitement: "excited", contentment: "content", gratitude: "grateful",
+  hope: "hopeful", pride: "proud", admiration: "impressed", trust: "trusting", curiosity: "curious",
+  sadness: "sad", grief: "heartbroken", loneliness: "lonely", disappointment: "disappointed", regret: "regretful",
+  anger: "angry", frustration: "frustrated", hatred: "outraged", jealousy: "jealous", envy: "envious",
+  fear: "scared", anxiety: "anxious", panic: "panicked", guilt: "guilty", shame: "embarrassed",
+  disgust: "disgusted", surprise: "surprised", confusion: "confused", boredom: "bored", awe: "amazed",
+};
+const initials = (name) => {
+  const w = String(name || "?").replace(/[^\p{L}\p{N} ]/gu, " ").trim().split(/\s+/).filter(Boolean);
+  return ((w[0] || "?")[0] + (w.length > 1 ? w[w.length - 1][0] : "")).toUpperCase();
+};
+const hueOf = (s) => { let h = 7; for (const ch of String(s)) h = (h * 31 + ch.codePointAt(0)) % 360; return h; };
+
+function fillInitials(box) {
+  // no picture: initials on a colour that is always the same for the same person
+  const h = hueOf(persona.name || persona.id);
+  box.style.background = `linear-gradient(135deg, hsl(${h} 62% 58%), hsl(${(h + 40) % 360} 58% 42%))`;
+  box.textContent = initials(persona.short || persona.name);
+}
+
+function pfp(size) {
+  const box = el("div", "pfp" + (size === "big" ? " big" : ""));
+  box.setAttribute("aria-hidden", "true");             // the name is always shown next to it
+  if (persona.avatar_v) {
+    const img = el("img");
+    img.alt = "";
+    img.src = `/api/avatar/${encodeURIComponent(persona.id)}?v=${persona.avatar_v}`;
+    img.addEventListener("error", () => { img.remove(); fillInitials(box); });
+    box.appendChild(img);
+  } else {
+    fillInitials(box);
+  }
+  return box;
+}
+
+function statusText(s) {
+  if (!s || !s.emotions || (s.settings && s.settings.intensity === 0)) return "online";
+  const blend = (s.blends || [])[0];
+  if (blend) return `online · feeling ${blend.name}`;
+  let e = (s.reacting_all || []).find((x) => x && x !== "none");
+  if (!e) {
+    e = EMOTIONS.filter((k) => k !== "love" && k !== "trust" && (s.emotions[k] || 0) >= 0.2)
+                .sort((a, b) => s.emotions[b] - s.emotions[a])[0];
+  }
+  if (!e) return "online";
+  // what they let show, not what they hide (a restrained persona shows less)
+  const n = s.shown && s.shown[e] !== undefined ? s.shown[e] : lvl(s.emotions[e] || 0);
+  return n >= 1 ? `online · feeling ${intensity(n)} ${FEEL_WORD[e] || e}` : "online";
+}
+
+let headKey = "";
+function renderHead(s) {
+  const name = (s && s.name) || persona.short || persona.name || "Companion";
+  const key = `${persona.id}|${persona.avatar_v}|${name}`;
+  if (key !== headKey) {                                // rebuild the picture only when the person changes
+    headKey = key;
+    const w = $("pfpwrap");
+    w.textContent = "";
+    w.append(pfp(), el("i", "online"));
+    $("whoname").textContent = name;
+    $("whoname").title = persona.name || name;
+  }
+  setStatus(statusText(s));
+}
+
+function setStatus(text, typing = false) {
+  const st = $("whostatus");
+  st.textContent = text;
+  st.classList.toggle("typing", typing);
+}
 let selected = -1;          // index into timeline shown in the "why" panel
 let hover = -1;
 let busy = false;
@@ -468,7 +572,8 @@ function showEmpty() {
   box.textContent = "";
   const e = el("div", "empty");
   const isDefault = persona.id === "companion";
-  e.append(el("h2", null, isDefault ? "Say hello" : `Say hello to ${persona.short}`),
+  e.append(pfp("big"),
+           el("h2", null, isDefault ? "Say hello" : `Say hello to ${persona.short}`),
            el("p", null, isDefault
              ? "Its emotions are numbers that change with every message, fade over time and are saved between visits. Watch the panel on the right as you talk."
              : `${persona.greeting || ""} An AI simulation built from ${persona.words ? persona.words.toLocaleString() + " words of " : ""}their own writings, with emotions computed in code. Turn the Emotions dial to choose how emotional they are.`));
@@ -489,6 +594,7 @@ async function send(text) {
   tb.append(el("span", null, "●"), el("span", null, " ●"), el("span", null, " ●"));
   typing.appendChild(tb);
   $("messages").appendChild(typing); scrollDown();
+  setStatus("typing…", true);
   // a person takes a moment to read and type: show the dots for at least 1-1.5 s
   const minWait = new Promise((ok) => setTimeout(ok, 1000 + Math.random() * 500));
   try {
@@ -505,6 +611,7 @@ async function send(text) {
     select(timeline.length - 1);
   } catch (err) {
     typing.remove();
+    renderHead(lastSnap);
     addNotice("Couldn't get a reply: " + err.message + ". Check the terminal running app.py.", true);
   } finally {
     busy = false; $("send").disabled = false; scrollDown(); $("input").focus();
@@ -582,6 +689,7 @@ function renderSnapshot(s) {
     : all.length ? `Your last message made it feel ${all.join(", ")}.`
     : s.turns ? "Your last message didn't stir a strong emotion." : "";
   renderSettings(s);
+  renderHead(s);
   renderSources(s.passages || []);
   renderThem(s.reading, timeline.length ? (timeline[timeline.length - 1].appraisal || {}).source : null);
 

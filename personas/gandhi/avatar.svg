@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Gandhi">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FCE6BE"/>
+      <stop offset="1" stop-color="#EFAE68"/>
+    </linearGradient>
+    <linearGradient id="skin" x1="0.3" y1="0" x2="0.7" y2="1">
+      <stop offset="0" stop-color="#C0835A"/>
+      <stop offset="1" stop-color="#A2643F"/>
+    </linearGradient>
+    <linearGradient id="cloth" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FBF8F1"/>
+      <stop offset="1" stop-color="#E9E1D0"/>
+    </linearGradient>
+    <clipPath id="round"><circle cx="64" cy="64" r="64"/></clipPath>
+  </defs>
+  <g clip-path="url(#round)">
+    <rect width="128" height="128" fill="url(#bg)"/>
+    <circle cx="64" cy="58" r="47" fill="#FFFFFF" opacity="0.16"/>
+
+    <!-- neck and khadi shawl -->
+    <path d="M55 76 L55 96 Q64 102 73 96 L73 76 Z" fill="#9C5F3C"/>
+    <path d="M10 128 C14 104 34 92 56 91 Q64 99 72 91 C94 92 114 104 118 128 Z" fill="url(#cloth)"/>
+    <path d="M30 128 C38 112 56 101 84 95 C92 98 100 102 106 108 C88 110 70 116 58 128 Z" fill="#E4DAC6"/>
+    <path d="M56 91 Q64 99 72 91" fill="none" stroke="#D8CDB6" stroke-width="1.4"/>
+
+    <!-- ears -->
+    <ellipse cx="33.5" cy="57" rx="6.5" ry="10" fill="#A9693F"/>
+    <ellipse cx="94.5" cy="57" rx="6.5" ry="10" fill="#A9693F"/>
+    <path d="M34.5 52 Q31 57 34.5 62" fill="none" stroke="#8A5131" stroke-width="1.4" stroke-linecap="round"/>
+    <path d="M93.5 52 Q97 57 93.5 62" fill="none" stroke="#8A5131" stroke-width="1.4" stroke-linecap="round"/>
+
+    <!-- head -->
+    <path d="M64 18 C83 18 95 33 94.5 53 C94 71 82 86 64 86 C46 86 34 71 33.5 53 C33 33 45 18 64 18 Z" fill="url(#skin)"/>
+    <ellipse cx="53" cy="30" rx="11" ry="5.5" fill="#FFFFFF" opacity="0.2" transform="rotate(-18 53 30)"/>
+    <!-- a little grey hair above the ears -->
+    <path d="M36 47 Q37 41 41 38" fill="none" stroke="#E2DCD2" stroke-width="2.4" stroke-linecap="round"/>
+    <path d="M92 47 Q91 41 87 38" fill="none" stroke="#E2DCD2" stroke-width="2.4" stroke-linecap="round"/>
+
+    <!-- brows, smiling eyes -->
+    <path d="M45.5 45 Q51.5 42 57 44.5" fill="none" stroke="#6B4A33" stroke-width="1.6" stroke-linecap="round" opacity="0.8"/>
+    <path d="M71 44.5 Q76.5 42 82.5 45" fill="none" stroke="#6B4A33" stroke-width="1.6" stroke-linecap="round" opacity="0.8"/>
+    <path d="M48.3 57.2 Q52 53.8 55.7 57.2" fill="none" stroke="#2A1F18" stroke-width="2" stroke-linecap="round"/>
+    <path d="M72.3 57.2 Q76 53.8 79.7 57.2" fill="none" stroke="#2A1F18" stroke-width="2" stroke-linecap="round"/>
+
+    <!-- round wire glasses -->
+    <g fill="none" stroke="#2E2620" stroke-width="2.2">
+      <circle cx="52" cy="56" r="8.6"/>
+      <circle cx="76" cy="56" r="8.6"/>
+      <path d="M60.6 55 Q64 51.8 67.4 55"/>
+      <path d="M43.4 54.6 L35.5 52.5"/>
+      <path d="M84.6 54.6 L92.5 52.5"/>
+    </g>
+    <circle cx="49" cy="52.6" r="2" fill="#FFFFFF" opacity="0.55"/>
+    <circle cx="73" cy="52.6" r="2" fill="#FFFFFF" opacity="0.55"/>
+
+    <!-- nose, cheeks -->
+    <path d="M64.5 60 Q61.5 66.5 63.6 69.2 Q65.6 70.2 67.4 68.8" fill="none" stroke="#7E4A2D" stroke-width="1.7" stroke-linecap="round"/>
+    <ellipse cx="44" cy="68" rx="5" ry="3" fill="#D9785E" opacity="0.35"/>
+    <ellipse cx="84" cy="68" rx="5" ry="3" fill="#D9785E" opacity="0.35"/>
+
+    <!-- white mustache and a warm smile -->
+    <path d="M54.5 73.5 Q59.5 69.6 64 72.3 Q68.5 69.6 73.5 73.5 Q68.5 76.4 64 74.8 Q59.5 76.4 54.5 73.5 Z" fill="#F3EFE7"/>
+    <path d="M57.5 78.4 Q64 83.4 70.5 78.4" fill="none" stroke="#5E331D" stroke-width="1.8" stroke-linecap="round"/>
+  </g>
+</svg>
