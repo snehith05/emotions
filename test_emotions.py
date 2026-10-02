@@ -1,6 +1,7 @@
 """
-Scripted tests for companion_v6: does each emotion move the way a person's would, and does it
-read the user well (how strongly they feel, sarcasm, bargaining)?
+Scripted tests for companion_v7: does each emotion move the way a person's would, does it read the
+user well (how strongly they feel, sarcasm, bargaining) - and do the v7 parts work: the emotion dial,
+limits, personas built from data, triggers, regulation, memory, conditioning and voices?
 
 Each step sends one message and states what SHOULD happen:
     "up"      the emotion rises by more than 0.05 (half a point out of 10)
@@ -17,8 +18,10 @@ import argparse
 import os
 import tempfile
 
-from companion_v6 import Companion, EMOTIONS, style_from_state
+from companion_v7 import Companion7, EMOTIONS, style_v7
 from llm_backends import LLM, PROVIDERS, key_status
+from persona import load_persona
+from voices import load_voice
 
 # (message, expectations, hours to wait BEFORE this message)
 CONVERSATION = [
@@ -48,14 +51,14 @@ def check(before, after, want):
     raise ValueError(want)
 
 
-def fresh(llm, fast, traits=None):
+def fresh(llm, fast, traits=None, **kw):
     path = os.path.join(tempfile.mkdtemp(), "state.json")
-    return Companion(llm, llm_fast=fast, state_file=path, traits=traits), path
+    return Companion7(llm, llm_fast=fast, state_file=path, traits=traits, **kw), path
 
 
 def style_for(comp, text):
     ap, _, h = comp.process(text)
-    return ap, style_from_state(comp.state, comp.emo, h, ap)
+    return ap, style_v7(comp, ap, h)
 
 
 def run_conversation(llm, fast, show_replies):
@@ -148,7 +151,7 @@ def run_conversation(llm, fast, show_replies):
 
     # 7. feelings survive a restart
     c.save()
-    again = Companion(llm, llm_fast=fast, state_file=path)
+    again = Companion7(llm, llm_fast=fast, state_file=path)
     report(all(abs(again.emo.v[k] - c.emo.v[k]) < 1e-9 for k in EMOTIONS),
            "emotions are the same after saving and loading")
 
@@ -163,7 +166,7 @@ def run_conversation(llm, fast, show_replies):
     named.process("your name is alex")
     named.process("my name is sai")
     named.save()
-    back = Companion(llm, llm_fast=fast, state_file=npath)
+    back = Companion7(llm, llm_fast=fast, state_file=npath)
     report((back.known.get("companion_name") or "").lower() == "alex" and
            (back.known.get("user_name") or "").lower() == "sai" and "alex" in back.state_text().lower(),
            f"remembers its name and yours after a restart "
@@ -195,6 +198,94 @@ def run_conversation(llm, fast, show_replies):
     _, style = style_for(lonely, "hi")
     report(lonely.emo.v["loneliness"] > 0.02 and "guilt-trip" in style,
            f"missed them while away (loneliness {lonely.emo.v['loneliness'] * 10:.1f}/10), no guilt-trip")
+
+    # ============================================================ v7
+    print("\nv7: dial, limits, personas, memory, voices")
+
+    # 15. the dial: the same good news moves it more on a higher dial; 0 = off
+    joy = {}
+    for d in (0, 2, 5, 9):
+        x, _ = fresh(llm, fast, intensity=d)
+        x.process("i got the job!! i'm so happy")
+        joy[d] = x.emo.v["joy"]
+    off, _ = fresh(llm, fast, intensity=0)
+    _, off_style = style_for(off, "i got the job!! i'm so happy")
+    report(joy[9] > joy[5] + 0.05 and joy[5] > joy[2] + 0.1 and joy[0] == 0 and "switched OFF" in off_style,
+           "the dial sets how emotional it is (joy at 0/2/5/9: "
+           + "/".join(f"{joy[d] * 10:.1f}" for d in (0, 2, 5, 9)) + ")")
+
+    # 16. a limit holds however hard it is pushed
+    lim, _ = fresh(llm, fast, intensity=10)
+    lim.set_limit("sadness", 2)
+    for t in ("you're useless", "i failed everything, i feel terrible", "you're so stupid"):
+        lim.process(t)
+    report(lim.emo.v["sadness"] <= 0.2 + 1e-9, f"a limit holds (sadness max 2, got {lim.emo.v['sadness'] * 10:.1f})")
+
+    # 17-19. a persona built from data: its writings, its triggers, its limits, its restraint
+    g, _ = fresh(llm, fast, persona=load_persona("gandhi"))
+    ps = g.persona.passages("what do you think about violence and force", 3)
+    report(len(g.persona.kb) > 500 and bool(ps) and any(w in ps[0]["text"].lower() for w in ("force", "violence")),
+           f"persona knowledge: {len(g.persona.kb)} passages of Gandhi's writings, related ones found")
+    ap, _, _ = g.process("those people attacked us, i want revenge, we should kill them")
+    report(any(t["id"] == "violence" for t in ap["triggers"]) and g.emo.v["sadness"] > 0.4
+           and g.emo.v["hatred"] <= 0.1 + 1e-9,
+           f"persona triggers: violence -> sadness {g.emo.v['sadness'] * 10:.1f}, hatred held at "
+           f"{g.emo.v['hatred'] * 10:.1f} (his limit is 1)")
+    hot, _ = fresh(llm, fast, persona=load_persona("gandhi"), intensity=10)
+    _, hot_style = style_for(hot, "hindus and muslims are rioting in my town, people want revenge")
+    report("let only about" in hot_style and "No emojis" in hot_style,
+           "regulation: he feels more than he lets show (and no emojis, as himself)")
+
+    # 20. memory finds things by meaning, not exact words
+    m, _ = fresh(llm, fast)
+    m.process("my mom is in the hospital, i'm scared")
+    m.process("what should i eat for dinner")
+    rec = m.mem.recall("how is your mother doing")
+    hit = (rec[0].gist + " " + rec[0].user).lower() if rec else ""
+    report("hospital" in hit, "recall by meaning ('mother' finds 'mom')")
+
+    # 21. conditioning: a topic that came with worry brings a little worry back on its own
+    cond, _ = fresh(llm, fast)
+    cond.process("i'm so scared about my exam tomorrow")
+    cond.process("i'm really anxious about the exam")
+    for _ in range(4):
+        cond.process("ok")
+    cond.process("the exam is on monday")
+    primed = [p["emotion"] for p in cond.last_primed if p["topic"] == "exam"]
+    report("anxiety" in primed, f"conditioning: 'exam' stirs anxiety again (primed: {primed or '-'})")
+
+    # 22. facts: repeats merge, and the related ones come back
+    f, _ = fresh(llm, fast)
+    f.mem.add_fact("user is studying computer science at nitte")
+    f.mem.add_fact("user is studying computer science at nitte college")
+    f.mem.add_fact("user has a dog called bruno")
+    hits = f.mem.facts_for("how is your dog", k=1)
+    report(len(f.mem.facts) == 2 and bool(hits) and "bruno" in hits[0]["text"],
+           "facts merge when repeated, recalled by topic")
+
+    # 23. settings survive a restart
+    st, spath = fresh(llm, fast, intensity=7, voice=load_voice("genz"))
+    st.set_limit("anger", 3)
+    back = Companion7(llm, llm_fast=fast, state_file=spath)
+    report(back.emo.intensity == 7 and back.settings()["limits"] == {"anger": 3} and back.voice is not None
+           and back.voice.id == "genz", "dial, limits and voice are remembered")
+
+    # 24. a voice shows the model how THIS feeling is texted in that style
+    vz, _ = fresh(llm, fast, voice=load_voice("genz"))
+    vz.process("i failed my exam, i feel terrible")
+    prompt = vz.system_prompt("", 0, [])
+    top = vz.emo.dominant()[0]
+    report("[your voice: Gen Z]" in prompt and f"({top} " in prompt, f"voice examples match what it feels ({top})")
+
+    # 25. mixed feelings
+    mix, _ = fresh(llm, fast)
+    mix.emo.v["joy"], mix.emo.v["sadness"] = 0.5, 0.5
+    report(any(b["name"] == "bittersweet" for b in mix.emo.blends()), "mixed feelings: joy + sadness = bittersweet")
+
+    # 26. reply length follows the message: short for casual chat, detailed only when asked
+    sizes = {t: fresh(llm, fast)[0].process(t)[0]["size"]
+             for t in ("i have a crush on someone", "explain how a transformer works")}
+    report(list(sizes.values()) == ["short", "detailed"], f"reply length fits the message ({sizes})")
 
     print(f"\n{passed}/{total} checks passed")
     return passed == total

@@ -1,0 +1,154 @@
+{
+ "dataset": {
+  "student_days": 2246,
+  "students": 49,
+  "test_days_temporal": 449
+ },
+ "tuned_params": {
+  "ridge": {
+   "ridge__alpha": 10
+  }
+ },
+ "best_model": "ridge",
+ "best_baseline": "baseline: person running mean",
+ "temporal": [
+  {
+   "split": "temporal",
+   "features": "all features",
+   "model": "baseline: training mean",
+   "MAE": 2.919,
+   "RMSE": 3.511,
+   "R2": -0.004,
+   "Spearman": NaN,
+   "n": 449
+  },
+  {
+   "split": "temporal",
+   "features": "all features",
+   "model": "baseline: person mean (training days)",
+   "MAE": 2.507,
+   "RMSE": 3.151,
+   "R2": 0.191,
+   "Spearman": 0.43,
+   "n": 449
+  },
+  {
+   "split": "temporal",
+   "features": "all features",
+   "model": "baseline: yesterday's value",
+   "MAE": 2.785,
+   "RMSE": 3.665,
+   "R2": -0.094,
+   "Spearman": 0.399,
+   "n": 449
+  },
+  {
+   "split": "temporal",
+   "features": "all features",
+   "model": "baseline: person running mean",
+   "MAE": 2.483,
+   "RMSE": 3.131,
+   "R2": 0.201,
+   "Spearman": 0.434,
+   "n": 449
+  },
+  {
+   "split": "temporal",
+   "features": "all features",
+   "model": "ridge",
+   "MAE": 2.55,
+   "RMSE": 3.188,
+   "R2": 0.172,
+   "Spearman": 0.407,
+   "n": 449
+  }
+ ],
+ "leave_students_out": [
+  {
+   "split": "leave-students-out",
+   "features": "all features",
+   "model": "ridge",
+   "MAE": 2.206,
+   "RMSE": 2.794,
+   "R2": 0.115,
+   "Spearman": 0.362,
+   "n": 2246
+  },
+  {
+   "split": "leave-students-out",
+   "features": "all features",
+   "model": "baseline: training mean",
+   "MAE": 2.431,
+   "RMSE": 3.003,
+   "R2": -0.022,
+   "Spearman": -0.198,
+   "n": 2246
+  },
+  {
+   "split": "leave-students-out",
+   "features": "all features",
+   "model": "baseline: yesterday's value",
+   "MAE": 2.552,
+   "RMSE": 3.371,
+   "R2": -0.287,
+   "Spearman": 0.318,
+   "n": 2246
+  },
+  {
+   "split": "leave-students-out",
+   "features": "all features",
+   "model": "baseline: person running mean",
+   "MAE": 2.156,
+   "RMSE": 2.744,
+   "R2": 0.147,
+   "Spearman": 0.398,
+   "n": 2246
+  }
+ ],
+ "mae_diff_best_model_minus_best_baseline_95ci": [
+  -0.005649406215744538,
+  0.1396065257445524
+ ],
+ "top_features": [
+  {
+   "feature": "pa_past_mean",
+   "importance": 0.2511,
+   "std": 0.0288
+  },
+  {
+   "feature": "pa_lag3",
+   "importance": 0.1488,
+   "std": 0.0194
+  },
+  {
+   "feature": "valence_lag1",
+   "importance": 0.0179,
+   "std": 0.0058
+  },
+  {
+   "feature": "weekday",
+   "importance": 0.0127,
+   "std": 0.0081
+  },
+  {
+   "feature": "dark_morning_min_lag1",
+   "importance": 0.0107,
+   "std": 0.0056
+  },
+  {
+   "feature": "bedtime_h",
+   "importance": 0.006,
+   "std": 0.0042
+  },
+  {
+   "feature": "waketime_h",
+   "importance": 0.0052,
+   "std": 0.0048
+  },
+  {
+   "feature": "sleep_quality_sr",
+   "importance": 0.0033,
+   "std": 0.006
+  }
+ ]
+}

@@ -1,17 +1,20 @@
 """
-Web UI for the emotional companion (companion_v6).
+Web UI for the emotional companion (companion_v7).
 
     python app.py                                   # offline rules, no key needed
     python app.py --backend groq                    # needs GROQ_API_KEY
+    python app.py --backend groq --persona gandhi --intensity 6 --voice genz
     python app.py --backend ollama --model llama3.2
     python app.py --port 8080 --no-browser
 
 Opens http://127.0.0.1:8000 in your browser: chat on the left, the companion's
 inner state on the right (emotions, mood, trust, emotions over time, memories),
-and a "why" panel that explains any reply you click.
+and a "why" panel that explains any reply you click. At the top you choose WHO it is
+(persona), HOW EMOTIONAL it is (0 = off ... 10) and HOW it texts (voice); per-emotion
+limits are under "Emotion limits".
 
 Uses only the Python standard library for the server - nothing extra to install.
-Same save file and log as companion_v6.py, so the CLI and the UI share one companion.
+Same save files and log as companion_v7.py, so the CLI and the UI share each persona.
 """
 import argparse
 import json
@@ -20,17 +23,19 @@ import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from companion_v6 import Companion, SAVE_FILE, LOG_FILE, VERSION
+from companion_v7 import Companion7, LOG_FILE, VERSION, EMOTIONS, state_path
 from llm_backends import LLM, PROVIDERS, key_status
+from persona import load_persona, list_personas, DEFAULT_ID
+from voices import load_voice, list_voices
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PAGE = os.path.join(HERE, "ui", "index.html")
 MAX_TIMELINE = 300
 
 
-def read_timeline(path, limit=MAX_TIMELINE):
+def read_timeline(path, persona=DEFAULT_ID, limit=MAX_TIMELINE):
     """Turn records from the log since the last reset, so the chart survives a restart.
-    Records from older versions (other emotions) are skipped."""
+    Only this persona's records from this version count."""
     if not path or not os.path.exists(path):
         return []
     rows = []
@@ -40,9 +45,9 @@ def read_timeline(path, limit=MAX_TIMELINE):
                 rec = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            if rec.get("event") == "reset":
+            if rec.get("event") == "reset" and rec.get("persona", DEFAULT_ID) == persona:
                 rows = []
-            elif "turn" in rec and rec.get("version") == VERSION:
+            elif "turn" in rec and rec.get("version") == VERSION and rec.get("persona", DEFAULT_ID) == persona:
                 rows.append(rec)
     return rows[-limit:]
 
@@ -59,13 +64,24 @@ class App:
                         f"rules, not the model. Put {PROVIDERS[args.backend][1]}=your-key in a file named .env "
                         f"in the project folder and restart app.py.") if status.startswith("WARNING") else None
         self.lock = threading.Lock()
-        self.companion = self.make()
-        self.timeline = read_timeline(self.log_file)
+        self.personas = {}                                  # loaded personas (their writings are indexed once)
+        self.persona_id = args.persona
+        self.companion = self.make(intensity=args.intensity,
+                                   voice="none" if args.voice == "none" else load_voice(args.voice) if args.voice else None)
+        self.timeline = read_timeline(self.log_file, self.persona_id)
 
-    def make(self):
-        return Companion(LLM(self.args.backend, self.main_model),
-                         llm_fast=LLM(self.args.backend, self.fast_model),
-                         state_file=self.args.state, log_file=self.log_file)
+    def persona(self, pid):
+        if pid not in self.personas:
+            self.personas[pid] = load_persona(pid)
+        return self.personas[pid]
+
+    def state_file(self):
+        return self.args.state if self.args.state and self.persona_id == self.args.persona else state_path(self.persona_id)
+
+    def make(self, intensity=None, voice=None):
+        return Companion7(LLM(self.args.backend, self.main_model),
+                          llm_fast=LLM(self.args.backend, self.fast_model), persona=self.persona(self.persona_id),
+                          state_file=self.state_file(), log_file=self.log_file, intensity=intensity, voice=voice)
 
     def info(self):
         c = self.companion
@@ -74,7 +90,10 @@ class App:
                 "warning": self.warning,
                 "snapshot": c.snapshot(),
                 "history": c.history[-40:],
-                "timeline": self.timeline}
+                "timeline": self.timeline,
+                "personas": list_personas(),
+                "voices": list_voices(),
+                "emotion_names": EMOTIONS}
 
     def chat(self, text):
         with self.lock:
@@ -85,12 +104,38 @@ class App:
 
     def reset(self):
         with self.lock:
-            if os.path.exists(self.args.state):
-                os.remove(self.args.state)
+            keep = self.companion.emo.intensity, self.companion.voice or "none"
+            if os.path.exists(self.companion.state_file):
+                os.remove(self.companion.state_file)
             if self.log_file:
-                self.companion.write_log({"event": "reset"})
-            self.companion = self.make()
+                self.companion.write_log({"event": "reset", "persona": self.persona_id})
+            self.companion = self.make(*keep)
             self.timeline = []
+            return self.info()
+
+    def settings(self, data):
+        """{"intensity": 0-10, "voice": "genz"|"none", "limits": {"anger": 3, "joy": null}}"""
+        with self.lock:
+            c = self.companion
+            if "intensity" in data:
+                c.set_intensity(int(data["intensity"]))
+            if "voice" in data:
+                c.set_voice(data["voice"] or "none")
+            for emo, n in (data.get("limits") or {}).items():
+                c.set_limit(emo, None if n is None else int(n))
+            if data.get("clear_limits"):
+                for emo in list(c.emo.user_caps):
+                    c.set_limit(emo, None)
+            return {"snapshot": c.snapshot()}
+
+    def switch(self, pid):
+        """Talk to someone else. Each persona keeps its own feelings, memories and settings."""
+        with self.lock:
+            if pid not in {p["id"] for p in list_personas()}:
+                raise ValueError(f"no persona '{pid}'")
+            self.persona_id = pid
+            self.companion = self.make()
+            self.timeline = read_timeline(self.log_file, pid)
             return self.info()
 
 
@@ -142,6 +187,12 @@ def make_handler(app):
                     self.send_json({"error": f"{type(e).__name__}: {e}"}, 500)
             elif self.path == "/api/reset":
                 self.send_json(app.reset())
+            elif self.path in ("/api/settings", "/api/persona"):
+                try:
+                    out = app.settings(data) if self.path == "/api/settings" else app.switch(str(data.get("id", "")))
+                    self.send_json(out)
+                except (ValueError, TypeError, SystemExit) as e:
+                    self.send_json({"error": str(e)}, 400)
             else:
                 self.send_error(404)
 
@@ -172,7 +223,10 @@ def main():
     p.add_argument("--backend", default="offline", choices=list(PROVIDERS))
     p.add_argument("--model", default=None, help="main model writing the replies")
     p.add_argument("--fast-model", default=None, help="cheap model that rates each message")
-    p.add_argument("--state", default=SAVE_FILE, help="where feelings and memories are saved")
+    p.add_argument("--persona", default=DEFAULT_ID, help="who it is: companion, gandhi, or a folder in personas/")
+    p.add_argument("--intensity", type=int, default=None, help="0 = emotions off, 1-10 = how emotional")
+    p.add_argument("--voice", default=None, help="how it texts: genz, millennial, desi, filmy, none")
+    p.add_argument("--state", default=None, help="where feelings and memories are saved")
     p.add_argument("--log", default=LOG_FILE, help="where every message is logged")
     p.add_argument("--no-log", action="store_true")
     p.add_argument("--port", type=int, default=8000)
@@ -191,7 +245,7 @@ def main():
     port = server.server_address[1]
     url = f"http://127.0.0.1:{port}"
     print(f"Companion UI running at {url}   [{a.backend}"
-          + (f": {app.main_model}" if a.backend != "offline" else "") + "]")
+          + (f": {app.main_model}" if a.backend != "offline" else "") + f"]   talking to: {app.companion.persona.name}")
     print("Press Ctrl+C to stop.")
     if not a.no_browser:
         threading.Timer(0.8, lambda: webbrowser.open(url)).start()

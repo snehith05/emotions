@@ -1,0 +1,32 @@
+{
+ "students_with_any_data": 49,
+ "student_days_in_term": 2966,
+ "valid_days": 2523,
+ "sleep_model": {
+  "nights": 1147,
+  "students": 49,
+  "alpha": {
+   "sl_dark_h": 0.0,
+   "sl_lock_h": 0.0,
+   "sl_charge_h": 0.0,
+   "sl_stationary_h": 0.038,
+   "sl_silence_h": 0.0,
+   "quiet_h": 0.107,
+   "constant": 4.926
+  },
+  "mae_min_predict_mean": 48.19573444693674,
+  "mae_min": 44.59260135096649,
+  "within_32min": 0.5414123801220575,
+  "r": 0.32433268780506125
+ },
+ "paper_correlations": 41,
+ "computable": 41,
+ "same_direction": 40,
+ "same_direction_and_p_le_0.05": 22,
+ "median_abs_r_paper": 0.373,
+ "median_abs_r_ours": 0.357,
+ "r_agreement_paper_vs_ours": 0.8828891302566101,
+ "pairs_tested_by_us": 250,
+ "pairs_p_le_0.05": 40,
+ "pairs_fdr_le_0.05": 6
+}

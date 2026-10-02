@@ -17,3 +17,10 @@ venv/
 # chat logs - personal
 logs/
 *.zip
+
+# half-written saves
+*.tmp
+
+# mood_research: downloaded data and caches (rebuild with python mood_research/get_data.py)
+mood_research/data/raw/
+mood_research/data/processed/

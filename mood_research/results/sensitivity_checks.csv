@@ -1,0 +1,24 @@
+check,row,paper_r,our_r,our_p,n
+self-reported sleep,sleep (self-report) ~ PHQ-9 pre,-0.36,-0.361,0.0138,46
+self-reported sleep,sleep (self-report) ~ PHQ-9 post,-0.382,-0.247,0.1354,38
+self-reported sleep,sleep (self-report) ~ PSS pre,-0.355,-0.343,0.0194,46
+"positive affect definition: PA, whole term (primary)",flourishing_pre ~ positive affect,0.47,0.108,0.4811,45
+"positive affect definition: PA, whole term (primary)",loneliness_post ~ positive affect,-0.39,0.119,0.4816,37
+"positive affect definition: PA, whole term (primary)",pss_pre ~ positive affect,-0.387,-0.009,0.9517,46
+"positive affect definition: PA, whole term (primary)",pss_post ~ positive affect,-0.373,-0.053,0.7483,39
+"positive affect definition: valence, whole term",flourishing_pre ~ positive affect,0.47,0.172,0.2581,45
+"positive affect definition: valence, whole term",loneliness_post ~ positive affect,-0.39,0.091,0.5921,37
+"positive affect definition: valence, whole term",pss_pre ~ positive affect,-0.387,-0.117,0.4394,46
+"positive affect definition: valence, whole term",pss_post ~ positive affect,-0.373,-0.082,0.6183,39
+"positive affect definition: PA, weeks 1-2",flourishing_pre ~ positive affect,0.47,0.131,0.3914,45
+"positive affect definition: PA, weeks 1-2",loneliness_post ~ positive affect,-0.39,0.017,0.9209,37
+"positive affect definition: PA, weeks 1-2",pss_pre ~ positive affect,-0.387,-0.119,0.4306,46
+"positive affect definition: PA, weeks 1-2",pss_post ~ positive affect,-0.373,-0.16,0.3299,39
+"positive affect definition: PA, weeks 9-10",flourishing_pre ~ positive affect,0.47,-0.149,0.401,34
+"positive affect definition: PA, weeks 9-10",loneliness_post ~ positive affect,-0.39,0.065,0.7373,29
+"positive affect definition: PA, weeks 9-10",pss_pre ~ positive affect,-0.387,0.11,0.5287,35
+"positive affect definition: PA, weeks 9-10",pss_post ~ positive affect,-0.373,-0.03,0.877,29
+"positive affect definition: PA, unweighted mean of days",flourishing_pre ~ positive affect,0.47,0.092,0.5476,45
+"positive affect definition: PA, unweighted mean of days",loneliness_post ~ positive affect,-0.39,0.119,0.4839,37
+"positive affect definition: PA, unweighted mean of days",pss_pre ~ positive affect,-0.387,0.008,0.9592,46
+"positive affect definition: PA, unweighted mean of days",pss_post ~ positive affect,-0.373,-0.026,0.8741,39

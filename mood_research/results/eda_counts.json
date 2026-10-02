@@ -1,0 +1,11 @@
+{
+ "students": 49,
+ "student_days": 2966,
+ "valid_sensing_days": 2523,
+ "days_with_pam": 2246,
+ "pam_answers": 8741,
+ "days_with_stress": 1258,
+ "nights_with_inferred_sleep": 2628,
+ "nights_with_self_report": 1211,
+ "pa_share_of_variance_between_students": 0.257
+}

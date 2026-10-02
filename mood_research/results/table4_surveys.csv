@@ -1,0 +1,9 @@
+survey,when,paper_n,paper_mean,paper_sd,our_n,our_mean,our_sd
+phq9,pre,40,5.8,4.9,46,5.5,4.6
+phq9,post,38,6.3,5.8,38,6.3,5.8
+flourishing,pre,40,42.6,7.9,45,42.6,8.6
+flourishing,post,37,42.8,8.9,37,42.8,8.9
+pss,pre,41,18.4,6.8,46,18.2,6.9
+pss,post,39,18.9,7.1,39,18.9,7.1
+loneliness,pre,40,40.5,10.9,46,40.7,10.5
+loneliness,post,37,40.9,10.5,37,40.9,10.5

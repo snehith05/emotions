@@ -1,0 +1,193 @@
+dataset_rds.zip: checksum OK
+53 original-release files: checksums OK
+Data ready.
+NOTE: tree models unavailable here (DLL load failed while importing _utils: An Application Control policy has blocked this file.).
+      Running ridge + baselines only. Run the Colab notebook for the full model set.
+
+=== EDA ===
+{
+ "students": 49,
+ "student_days": 2966,
+ "valid_sensing_days": 2523,
+ "days_with_pam": 2246,
+ "pam_answers": 8741,
+ "days_with_stress": 1258,
+ "nights_with_inferred_sleep": 2628,
+ "nights_with_self_report": 1211,
+ "pa_share_of_variance_between_students": 0.257
+}
+                   count    mean     std    min     25%     50%     75%      max  share_missing
+pa                1995.0    8.93    2.91   1.00    7.00    9.00   11.00    16.00          0.243
+valence           1995.0    0.03    1.10  -2.00   -0.86    0.00    1.00     2.00          0.243
+arousal           1995.0    0.28    0.97  -2.00   -0.33    0.33    1.00     2.00          0.243
+stress            1166.0    3.15    1.00   1.00    2.50    3.00    4.00     5.00          0.576
+sleep_h           2512.0    6.15    0.43   4.93    5.90    6.16    6.40     7.55          0.114
+sleep_hours_sr    1137.0    6.17    1.14   2.50    5.50    6.00    6.50    12.00          0.592
+bedtime_h         2518.0   25.05    2.84  18.00   23.67   25.00   26.50    35.33          0.080
+activity_min      2523.0   73.72   82.89   0.00   30.00   60.00  100.00  1440.00          0.034
+conv_min          2396.0  314.59  179.91   1.00  178.58  304.23  433.04  1139.37          0.090
+conv_freq         2396.0   30.78   15.37   1.00   21.00   30.00   39.00   120.00          0.090
+colocations       2400.0   40.12   32.90   1.00   15.00   34.00   57.00   289.00          0.088
+distance_km       2448.0    6.28    8.35   0.00    1.89    3.41    6.22   118.87          0.066
+dark_min          2235.0  611.83  310.45   0.78  380.96  608.72  831.86  1504.47          0.186
+dark_morning_min  1487.0  168.58   70.43   0.18  118.51  188.50  235.02   433.83          0.489
+deadlines         2285.0    0.29    0.57   0.00    0.00    0.00    0.00     3.00          0.097
+
+=== PART 1: reproduction of Wang et al. (2014) ===
+     survey when  paper_n  paper_mean  paper_sd  our_n  our_mean  our_sd
+       phq9  pre       40         5.8       4.9     46       5.5     4.6
+       phq9 post       38         6.3       5.8     38       6.3     5.8
+flourishing  pre       40        42.6       7.9     45      42.6     8.6
+flourishing post       37        42.8       8.9     37      42.8     8.9
+        pss  pre       41        18.4       6.8     46      18.2     6.9
+        pss post       39        18.9       7.1     39      18.9     7.1
+ loneliness  pre       40        40.5      10.9     46      40.7    10.5
+ loneliness post       37        40.9      10.5     37      40.9    10.5
+table                                     paper_row  paper_r  paper_p  our_r  our_p  n  same_direction
+    3                          sleep duration (pre)   -0.360    0.025 -0.180 0.2307 46            True
+    3                         sleep duration (post)   -0.382    0.020 -0.166 0.3182 38            True
+    3       conversation frequency during day (pre)   -0.403    0.010 -0.377 0.0097 46            True
+    3      conversation frequency during day (post)   -0.387    0.016 -0.387 0.0165 38            True
+    3  conversation frequency during evening (post)   -0.345    0.034 -0.407 0.0112 38            True
+    3       conversation duration during day (post)   -0.328    0.044 -0.311 0.0572 38            True
+    3                 number of co-locations (post)   -0.362    0.025 -0.325 0.0461 38            True
+    5                   conversation duration (pre)    0.294    0.066  0.356 0.0163 45            True
+    5    conversation duration during evening (pre)    0.362    0.022  0.363 0.0143 45            True
+    5                 number of co-locations (post)    0.324    0.050  0.393 0.0162 37            True
+    6                  conversation duration (post)   -0.357    0.026 -0.358 0.0253 39            True
+    6                 conversation frequency (post)   -0.394    0.013 -0.399 0.0118 39            True
+    6       conversation duration during day (post)   -0.401    0.011 -0.392 0.0135 39            True
+    6       conversation frequency during day (pre)   -0.524    0.001 -0.181 0.2285 46            True
+    6   conversation frequency during evening (pre)   -0.386    0.015 -0.145 0.3357 46            True
+    6                          sleep duration (pre)   -0.355    0.024 -0.166 0.2702 46            True
+    7                      activity duration (post)   -0.388    0.018 -0.291 0.0809 37            True
+    7              activity duration for day (post)   -0.326    0.049 -0.236 0.1605 37            True
+    7          activity duration for evening (post)   -0.464    0.004 -0.369 0.0245 37            True
+    7                      traveled distance (post)   -0.338    0.044 -0.264 0.1139 37            True
+    7              traveled distance for day (post)   -0.336    0.042 -0.266 0.1113 37            True
+    7                indoor mobility for day (post)   -0.332    0.045 -0.216 0.1985 37            True
+    8           flourishing (pre) ~ positive affect    0.470    0.002  0.108 0.4811 45            True
+    8           loneliness (post) ~ positive affect   -0.390    0.020  0.119 0.4816 37           False
+    8                    loneliness (post) ~ stress    0.344    0.037  0.323 0.0509 37            True
+    8                         PHQ-9 (post) ~ stress    0.412    0.010  0.431 0.0068 38            True
+    8                   PSS (pre) ~ positive affect   -0.387    0.012 -0.009 0.9517 46            True
+    8                  PSS (post) ~ positive affect   -0.373    0.019 -0.053 0.7483 39            True
+    8                            PSS (pre) ~ stress    0.458    0.003  0.452 0.0018 45            True
+    8                           PSS (post) ~ stress    0.412    0.009  0.436 0.0055 39            True
+    9      spring GPA ~ conversation duration (day)    0.356    0.033  0.357 0.0526 30            True
+    9     spring GPA ~ conversation frequency (day)    0.334    0.046  0.255 0.1743 30            True
+    9                  spring GPA ~ indoor mobility   -0.361    0.031 -0.620 0.0003 30            True
+    9            spring GPA ~ indoor mobility (day)   -0.352    0.036 -0.592 0.0006 30            True
+    9          spring GPA ~ indoor mobility (night)   -0.359    0.032 -0.597 0.0005 30            True
+    9               overall GPA ~ activity duration   -0.360    0.030 -0.317 0.0879 30            True
+    9 overall GPA ~ activity duration std deviation   -0.479    0.004 -0.477 0.0076 30            True
+    9                 overall GPA ~ indoor mobility   -0.413    0.014 -0.367 0.0460 30            True
+    9           overall GPA ~ indoor mobility (day)   -0.376    0.026 -0.415 0.0224 30            True
+    9         overall GPA ~ indoor mobility (night)   -0.508    0.002 -0.405 0.0264 30            True
+    9          overall GPA ~ number of co-locations    0.447    0.013  0.431 0.0175 30            True
+                                                  check                               row  paper_r  our_r  our_p  n
+                                    self-reported sleep   sleep (self-report) ~ PHQ-9 pre   -0.360 -0.361 0.0138 46
+                                    self-reported sleep  sleep (self-report) ~ PHQ-9 post   -0.382 -0.247 0.1354 38
+                                    self-reported sleep     sleep (self-report) ~ PSS pre   -0.355 -0.343 0.0194 46
+   positive affect definition: PA, whole term (primary) flourishing_pre ~ positive affect    0.470  0.108 0.4811 45
+   positive affect definition: PA, whole term (primary) loneliness_post ~ positive affect   -0.390  0.119 0.4816 37
+   positive affect definition: PA, whole term (primary)         pss_pre ~ positive affect   -0.387 -0.009 0.9517 46
+   positive affect definition: PA, whole term (primary)        pss_post ~ positive affect   -0.373 -0.053 0.7483 39
+        positive affect definition: valence, whole term flourishing_pre ~ positive affect    0.470  0.172 0.2581 45
+        positive affect definition: valence, whole term loneliness_post ~ positive affect   -0.390  0.091 0.5921 37
+        positive affect definition: valence, whole term         pss_pre ~ positive affect   -0.387 -0.117 0.4394 46
+        positive affect definition: valence, whole term        pss_post ~ positive affect   -0.373 -0.082 0.6183 39
+              positive affect definition: PA, weeks 1-2 flourishing_pre ~ positive affect    0.470  0.131 0.3914 45
+              positive affect definition: PA, weeks 1-2 loneliness_post ~ positive affect   -0.390  0.017 0.9209 37
+              positive affect definition: PA, weeks 1-2         pss_pre ~ positive affect   -0.387 -0.119 0.4306 46
+              positive affect definition: PA, weeks 1-2        pss_post ~ positive affect   -0.373 -0.160 0.3299 39
+             positive affect definition: PA, weeks 9-10 flourishing_pre ~ positive affect    0.470 -0.149 0.4010 34
+             positive affect definition: PA, weeks 9-10 loneliness_post ~ positive affect   -0.390  0.065 0.7373 29
+             positive affect definition: PA, weeks 9-10         pss_pre ~ positive affect   -0.387  0.110 0.5287 35
+             positive affect definition: PA, weeks 9-10        pss_post ~ positive affect   -0.373 -0.030 0.8770 29
+positive affect definition: PA, unweighted mean of days flourishing_pre ~ positive affect    0.470  0.092 0.5476 45
+positive affect definition: PA, unweighted mean of days loneliness_post ~ positive affect   -0.390  0.119 0.4839 37
+positive affect definition: PA, unweighted mean of days         pss_pre ~ positive affect   -0.387  0.008 0.9592 46
+positive affect definition: PA, unweighted mean of days        pss_post ~ positive affect   -0.373 -0.026 0.8741 39
+{
+ "students_with_any_data": 49,
+ "student_days_in_term": 2966,
+ "valid_days": 2523,
+ "sleep_model": {
+  "nights": 1147,
+  "students": 49,
+  "alpha": {
+   "sl_dark_h": 0.0,
+   "sl_lock_h": 0.0,
+   "sl_charge_h": 0.0,
+   "sl_stationary_h": 0.038,
+   "sl_silence_h": 0.0,
+   "quiet_h": 0.107,
+   "constant": 4.926
+  },
+  "mae_min_predict_mean": 48.19573444693674,
+  "mae_min": 44.59260135096649,
+  "within_32min": 0.5414123801220575,
+  "r": 0.32433268780506125
+ },
+ "paper_correlations": 41,
+ "computable": 41,
+ "same_direction": 40,
+ "same_direction_and_p_le_0.05": 22,
+ "median_abs_r_paper": 0.373,
+ "median_abs_r_ours": 0.357,
+ "r_agreement_paper_vs_ours": 0.8828891302566101,
+ "pairs_tested_by_us": 250,
+ "pairs_p_le_0.05": 40,
+ "pairs_fdr_le_0.05": 6
+}
+
+=== PART 2: ML extension (ours) ===
+PA dataset: 2246 student-days, 49 students
+             split     features                                 model   MAE  RMSE     R2  Spearman    n                 target
+          temporal all features               baseline: training mean 2.919 3.511 -0.004       NaN  449 positive affect (1-16)
+          temporal all features baseline: person mean (training days) 2.507 3.151  0.191     0.430  449 positive affect (1-16)
+          temporal all features           baseline: yesterday's value 2.785 3.665 -0.094     0.399  449 positive affect (1-16)
+          temporal all features         baseline: person running mean 2.483 3.131  0.201     0.434  449 positive affect (1-16)
+          temporal all features                                 ridge 2.550 3.188  0.172     0.407  449 positive affect (1-16)
+leave-students-out all features                                 ridge 2.206 2.794  0.115     0.362 2246 positive affect (1-16)
+leave-students-out all features               baseline: training mean 2.431 3.003 -0.022    -0.198 2246 positive affect (1-16)
+leave-students-out all features           baseline: yesterday's value 2.552 3.371 -0.287     0.318 2246 positive affect (1-16)
+leave-students-out all features         baseline: person running mean 2.156 2.744  0.147     0.398 2246 positive affect (1-16)
+          temporal all features               baseline: training mean 0.813 1.068 -0.009       NaN  245           stress (1-5)
+          temporal all features baseline: person mean (training days) 0.752 0.961  0.182     0.433  245           stress (1-5)
+          temporal all features           baseline: yesterday's value 0.666 0.968  0.171     0.545  245           stress (1-5)
+          temporal all features         baseline: person running mean 0.730 0.936  0.225     0.463  245           stress (1-5)
+          temporal all features                                 ridge 0.785 1.018  0.083     0.364  245           stress (1-5)
+   split                     features model   MAE  RMSE     R2  Spearman   n                 target
+temporal                 mood history ridge 2.532 3.158  0.188     0.436 449 positive affect (1-16)
+temporal                        sleep ridge 2.918 3.516 -0.006     0.084 449 positive affect (1-16)
+temporal            activity & social ridge 2.923 3.511 -0.004     0.094 449 positive affect (1-16)
+temporal phone darkness (light proxy) ridge 2.909 3.502  0.001     0.066 449 positive affect (1-16)
+temporal          calendar & workload ridge 2.919 3.512 -0.004    -0.007 449 positive affect (1-16)
+temporal      all except mood history ridge 2.900 3.503  0.001     0.097 449 positive affect (1-16)
+best model: ridge | best baseline: baseline: person running mean | MAE diff 95% CI: [-0.006  0.14 ]
+              feature  importance    std
+         pa_past_mean      0.2511 0.0288
+              pa_lag3      0.1488 0.0194
+         valence_lag1      0.0179 0.0058
+              weekday      0.0127 0.0081
+dark_morning_min_lag1      0.0107 0.0056
+            bedtime_h      0.0060 0.0042
+           waketime_h      0.0052 0.0048
+     sleep_quality_sr      0.0033 0.0060
+    activity_min_lag1      0.0026 0.0015
+              sleep_h      0.0019 0.0018
+                        predictor          level  coef_per_SD  ci_low  ci_high     p  n_days  n_students
+              sleep (inferred, h)  within-person       -0.009  -0.150    0.131 0.900    2043          49
+              sleep (inferred, h) between-person       -0.088  -0.773    0.597 0.800    2043          49
+         activity yesterday (min)  within-person        0.082  -0.054    0.217 0.236    1936          49
+         activity yesterday (min) between-person       -0.043  -0.837    0.751 0.916    1936          49
+     conversation yesterday (min)  within-person       -0.060  -0.208    0.088 0.429    1830          49
+     conversation yesterday (min) between-person        0.558  -0.095    1.210 0.094    1830          49
+phone dark 6-10am yesterday (min)  within-person        0.154  -0.011    0.319 0.067    1163          49
+phone dark 6-10am yesterday (min) between-person        0.394  -0.393    1.180 0.327    1163          49
+           sleep (self-report, h)  within-person        0.016  -0.124    0.157 0.818    1209          49
+           sleep (self-report, h) between-person        0.115  -0.981    1.212 0.836    1209          49
+
+Done in 0.6 min. See results/ and figures/.

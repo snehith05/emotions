@@ -240,6 +240,33 @@ ul.mem li:last-child { border-bottom: 0; }
 ul.mem .str { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; min-width: 30px; }
 ul.mem .dot { transform: translateY(1px); }
 
+/* controls: who, how emotional, how it texts */
+.ctl { display: grid; grid-template-columns: 96px 1fr; align-items: center; gap: 10px 12px; }
+.ctl label { font-size: 13px; color: var(--ink-2); }
+.sel {
+  width: 100%; border: 1px solid var(--ring); background: var(--raised); border-radius: 8px;
+  padding: 6px 8px; font-size: 14px;
+}
+.dial { display: flex; flex-direction: column; gap: 2px; }
+.dial input[type=range] { width: 100%; accent-color: var(--focus); margin: 0; }
+.dial .dialtxt { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--muted); }
+.dial .dialtxt b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.persona-sum { font-size: 13px; color: var(--ink-2); margin: 10px 0 0; }
+details.limits { margin-top: 12px; border-top: 1px solid var(--grid); padding-top: 8px; }
+details.limits summary { cursor: pointer; font-size: 13px; color: var(--ink-2); }
+.limgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 14px; margin-top: 8px; }
+.lim { display: grid; grid-template-columns: 92px 1fr 34px; align-items: center; gap: 6px; font-size: 12.5px; }
+.lim input { width: 100%; accent-color: var(--focus); margin: 0; }
+.lim span:last-child { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+.lim.set span:last-child { color: var(--ink); font-weight: 600; }
+.lim.fixed { opacity: .65; }
+.blends { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.blends span { font-size: 12.5px; border: 1px dashed var(--axis); border-radius: 999px; padding: 1px 9px; color: var(--ink-2); }
+.passage { border-left: 2px solid var(--axis); padding: 2px 0 2px 10px; margin: 0 0 10px; }
+.passage small { display: block; font-size: 11.5px; color: var(--muted); margin-bottom: 2px; }
+.passage p { margin: 0; font-size: 13px; color: var(--ink-2); max-height: 7.5em; overflow: hidden; }
+.passage.open p { max-height: none; }
+
 @media (max-width: 900px) {
   .layout { display: block; height: auto; }
   .chat { height: 72vh; border-right: 0; border-bottom: 1px solid var(--ring); }
@@ -249,6 +276,7 @@ ul.mem .dot { transform: translateY(1px); }
   .brand .sub { display: none; }
   .chips { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; }
   .chip { white-space: nowrap; }
+  .limgrid { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) {
   .bar > i, .div-bar > i { transition: none; }
@@ -260,7 +288,7 @@ ul.mem .dot { transform: translateY(1px); }
 <header class="top">
   <div class="brand">
     <h1>Emotion Companion</h1>
-    <span class="sub">feelings computed in code · the model only puts them into words</span>
+    <span class="sub" id="sub">feelings computed in code · the model only puts them into words</span>
   </div>
   <div class="spacer"></div>
   <span class="pill" id="backend">connecting…</span>
@@ -281,6 +309,33 @@ ul.mem .dot { transform: translateY(1px); }
 
   <aside class="inner" aria-label="Inner state">
     <div class="card">
+      <h3>Who and how</h3>
+      <div class="ctl">
+        <label for="persona">Talking to</label>
+        <select class="sel" id="persona"></select>
+        <label for="dial">Emotions</label>
+        <div class="dial">
+          <input type="range" id="dial" min="0" max="10" step="1" aria-describedby="dialtxt">
+          <div class="dialtxt" id="dialtxt"></div>
+        </div>
+        <label for="voice">Texts like</label>
+        <select class="sel" id="voice"></select>
+      </div>
+      <p class="persona-sum" id="personasum"></p>
+      <details class="limits">
+        <summary>Emotion limits <span id="limitcount"></span></summary>
+        <p class="hint" style="margin-top:6px">Set a ceiling for any emotion: it can never go above that level. 10 = no limit.
+          <button class="linkbtn" id="clearlimits" type="button">Clear all</button></p>
+        <div class="limgrid" id="limits"></div>
+      </details>
+    </div>
+
+    <div class="card" id="sourcescard" hidden>
+      <h3>From their writings <span class="right" id="sourcesinfo"></span></h3>
+      <div id="sources"></div>
+    </div>
+
+    <div class="card">
       <h3>How you seem to feel <span class="right" id="themsrc"></span></h3>
       <div id="them"><p class="hint">Each message is read for what you feel and how strongly, from 1 (slightly) to 10 (extremely).</p></div>
     </div>
@@ -288,6 +343,7 @@ ul.mem .dot { transform: translateY(1px); }
     <div class="card">
       <h3>What it feels <span class="right"><button class="linkbtn" id="alltoggle" type="button">Show all 30</button></span></h3>
       <div id="emotions"></div>
+      <div class="blends" id="blends"></div>
       <div class="reactline" id="reactline"></div>
     </div>
 
@@ -357,6 +413,12 @@ const fmt = (x, d = 2) => Number(x).toFixed(d);
 const signed = (x) => (x >= 0 ? "+" : "−") + Math.abs(x).toFixed(2);
 
 let timeline = [];          // one record per reply: appraisal, emotions, state, instructions
+let persona = { id: "companion", name: "Companion", short: "Companion" };
+const PERSONA_CHIPS = (p) => (p.suggestions && p.suggestions.length) ? p.suggestions : [
+  "Who are you?", "What do you believe in most?", "What would you do in my place?",
+  `are you really ${p.short}?`, "I failed my exam today", "people keep lying to me"];
+const DIAL_WORDS = (n) => n === 0 ? "off - no emotions" : n <= 2 ? "very restrained" : n <= 4 ? "reserved"
+  : n <= 6 ? "a typical person" : n <= 8 ? "expressive" : "intensely emotional";
 let selected = -1;          // index into timeline shown in the "why" panel
 let hover = -1;
 let busy = false;
@@ -405,8 +467,11 @@ function showEmpty() {
   const box = $("messages");
   box.textContent = "";
   const e = el("div", "empty");
-  e.append(el("h2", null, "Say hello"),
-           el("p", null, "Its emotions are numbers that change with every message, fade over time and are saved between visits. Watch the panel on the right as you talk."));
+  const isDefault = persona.id === "companion";
+  e.append(el("h2", null, isDefault ? "Say hello" : `Say hello to ${persona.short}`),
+           el("p", null, isDefault
+             ? "Its emotions are numbers that change with every message, fade over time and are saved between visits. Watch the panel on the right as you talk."
+             : `${persona.greeting || ""} An AI simulation built from ${persona.words ? persona.words.toLocaleString() + " words of " : ""}their own writings, with emotions computed in code. Turn the Emotions dial to choose how emotional they are.`));
   box.appendChild(e);
 }
 
@@ -503,13 +568,21 @@ function renderSnapshot(s) {
     const delta = el("div", "delta" + (ch > 0.01 ? " up" : ch < -0.01 ? " down" : ""),
                      Math.abs(ch) > 0.01 ? (ch > 0 ? "▲ " : "▼ ") + Math.abs(ch * 10).toFixed(1) : "");
     row.append(name, bar, el("div", "val", lvlText(v)), delta);
-    if (reasons[e] && v >= 0.05) row.appendChild(el("div", "reason", reasons[e]));
+    const shown = (s.shown || {})[e];
+    const held = shown !== undefined && shown <= lvl(v) - 2 ? ` · lets about ${shown}/10 show` : "";
+    if ((reasons[e] || held) && v >= 0.05) row.appendChild(el("div", "reason", (reasons[e] || "") + held));
     box.appendChild(row);
   }
+  const bl = $("blends"); bl.textContent = "";
+  for (const b of s.blends || []) {
+    const t = el("span", null, `mixed: ${b.name} (${b.of.join(" + ")})`); t.title = b.how; bl.appendChild(t);
+  }
   const all = (s.reacting_all || []).filter(Boolean);
-  $("reactline").textContent = all.length
-    ? `Your last message made it feel ${all.join(", ")}.`
+  $("reactline").textContent = s.settings && s.settings.intensity === 0 ? "Emotions are switched off."
+    : all.length ? `Your last message made it feel ${all.join(", ")}.`
     : s.turns ? "Your last message didn't stir a strong emotion." : "";
+  renderSettings(s);
+  renderSources(s.passages || []);
   renderThem(s.reading, timeline.length ? (timeline[timeline.length - 1].appraisal || {}).source : null);
 
   const m = $("meters"); m.textContent = "";
@@ -535,19 +608,24 @@ function renderSnapshot(s) {
 
   const mem = $("memories"); mem.textContent = "";
   const k = s.known || {};
+  const addList = (title, items) => {
+    if (!items.length) return;
+    mem.appendChild(el("div", "sect", title));
+    const ul = el("ul", "mem");
+    for (const f of items) ul.appendChild(el("li", null, f));
+    mem.appendChild(ul);
+  };
   const facts = [];
   if (k.companion_name) facts.push(`Its name is ${k.companion_name}`);
   if (k.user_name) facts.push(`Your name is ${k.user_name}`);
-  for (const f of (k.facts || []).slice(-8)) facts.push(f);
-  if (facts.length) {
-    mem.appendChild(el("div", "sect", "Knows about you and itself"));
-    const ul = el("ul", "mem");
-    for (const f of facts) ul.appendChild(el("li", null, f));
-    mem.appendChild(ul);
-    mem.appendChild(el("div", "sect", "Emotional moments"));
-  }
+  for (const f of (s.facts || k.facts || []).slice(-8)) facts.push(f);
+  addList("Knows about you", facts);
+  addList("Its sense of you (looking back)", s.reflections || []);
+  addList("Topics that stir feelings", (s.links || []).map((l) => `'${l.topic}' → ${l.emotion} ${l.level}/10`));
+  const counts = s.memory_counts ? ` (${s.memory_counts.moments} kept)` : "";
+  mem.appendChild(el("div", "sect", "Moments it remembers" + counts));
   if (!s.memories.length) {
-    mem.appendChild(el("p", "hint", "Nothing strong enough to remember yet."));
+    mem.appendChild(el("p", "hint", "Nothing to remember yet."));
   } else {
     const ul = el("ul", "mem");
     for (const x of s.memories) {
@@ -555,10 +633,82 @@ function renderSnapshot(s) {
       const d = el("i", "dot");
       d.style.background = EMOTIONS.includes(x.emotion) ? color(x.emotion) : "var(--axis)";
       d.title = x.emotion;
-      li.append(el("span", "str", fmt(x.strength, 1)), d, el("span", null, x.gist));
+      const when = x.ago ? ` · ${x.ago}` + (x.recalls ? ` · recalled ${x.recalls}×` : "") : "";
+      li.append(el("span", "str", fmt(x.strength, 1)), d, el("span", null, x.gist + when));
       ul.appendChild(li);
     }
     mem.appendChild(ul);
+  }
+}
+
+// ------------------------------------------------------------ who and how
+function renderSettings(s) {
+  const st = s.settings || { intensity: 5, limits: {}, persona_limits: {} };
+  persona = Object.assign(persona, s.persona || {});
+  $("sub").textContent = persona.id === "companion"
+    ? "feelings computed in code · the model only puts them into words"
+    : `talking to ${persona.name} · an AI simulation built from their writings`;
+  if (document.activeElement !== $("dial")) $("dial").value = st.intensity;
+  dialText(st.intensity, st.default_intensity);
+  $("voice").value = st.voice || "";
+  $("personasum").textContent = persona.id === "companion" ? "" : (persona.summary || "");
+  const box = $("limits"); box.textContent = "";
+  const fixed = st.persona_limits || {}, mine = st.limits || {};
+  for (const e of EMOTIONS) {
+    const cap = Math.min(fixed[e] ?? 10, mine[e] ?? 10);
+    const row = el("div", "lim" + (e in mine ? " set" : "") + (e in fixed ? " fixed" : ""));
+    const r = el("input"); r.type = "range"; r.min = 0; r.max = 10; r.step = 1; r.value = cap;
+    r.setAttribute("aria-label", `${e} limit`);
+    if (e in fixed) { r.disabled = true; row.title = `${persona.short}'s own limit`; }
+    const out = el("span", null, cap >= 10 ? "-" : String(cap));
+    r.addEventListener("input", () => { out.textContent = r.value >= 10 ? "-" : r.value; });
+    r.addEventListener("change", () => saveSettings({ limits: { [e]: Number(r.value) >= 10 ? null : Number(r.value) } }));
+    const name = el("span"); const d = el("i", "dot"); d.style.background = color(e);
+    d.style.display = "inline-block"; d.style.marginRight = "6px";
+    name.append(d, document.createTextNode(e));
+    row.append(name, r, out); box.appendChild(row);
+  }
+  const n = Object.keys(mine).length;
+  $("limitcount").textContent = n ? `· ${n} set` : "";
+}
+
+function dialText(n, natural) {
+  const t = $("dialtxt"); t.textContent = "";
+  const left = el("span"); left.append(el("b", null, n === 0 ? "Off" : `${n}/10`), document.createTextNode(` · ${DIAL_WORDS(Number(n))}`));
+  t.append(left, el("span", null, natural !== undefined ? `natural: ${natural}` : ""));
+}
+
+function renderSources(ps) {
+  const card = $("sourcescard"), box = $("sources");
+  card.hidden = persona.id === "companion" || !persona.passages;
+  $("sourcesinfo").textContent = persona.passages ? `${persona.passages} passages` : "";
+  box.textContent = "";
+  if (!ps.length) { box.appendChild(el("p", "hint", "Passages from their own writings that relate to your message will show here.")); return; }
+  for (const p of ps) {
+    const d = el("div", "passage");
+    d.append(el("small", null, p.source + (p.heading ? ` · ${p.heading}` : "")), el("p", null, p.text));
+    d.title = "Click to expand"; d.addEventListener("click", () => d.classList.toggle("open"));
+    box.appendChild(d);
+  }
+}
+
+async function saveSettings(body) {
+  try {
+    const r = await fetch("/api/settings", { method: "POST", headers: { "Content-Type": "application/json" },
+                                             body: JSON.stringify(body) });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || r.statusText);
+    renderSnapshot(data.snapshot);
+  } catch (err) { addNotice("Couldn't change the setting: " + err.message, true); }
+}
+
+function renderChips() {
+  const box = $("chips"); box.textContent = "";
+  box.appendChild(el("span", "label", "Try:"));
+  for (const s of persona.id === "companion" ? SUGGESTIONS : PERSONA_CHIPS(persona)) {
+    const c = el("button", "chip", s); c.type = "button";
+    c.addEventListener("click", () => send(s));
+    box.appendChild(c);
   }
 }
 
@@ -624,11 +774,28 @@ function renderWhy() {
   }
   box.appendChild(ul);
 
+  if (t.triggers && t.triggers.length) {
+    box.appendChild(el("div", "sect", "Touched something they care about:"));
+    const ul = el("ul", "mem");
+    for (const r of t.triggers) ul.appendChild(el("li", null, r.when));
+    box.appendChild(ul);
+  }
+  if (t.blends && t.blends.length) box.appendChild(el("div", "sect", "Mixed feelings: " + t.blends.map((b) => `${b.name} (${b.of.join(" + ")})`).join(", ")));
+  if (t.primed && t.primed.length) box.appendChild(el("div", "sect", "Old feelings stirred: " + t.primed.map((p) => `'${p.topic}' → ${p.emotion}`).join(", ")));
   if (t.recalled && t.recalled.length) {
     box.appendChild(el("div", "sect", "Remembered from before:"));
     const ul = el("ul", "mem");
-    for (const r of t.recalled) ul.appendChild(el("li", null, `${r.gist} (felt ${r.emotion})`));
+    for (const r of t.recalled) ul.appendChild(el("li", null, `${r.gist} (felt ${r.emotion}${r.ago ? ", " + r.ago : ""})`));
     box.appendChild(ul);
+  }
+  if (t.passages && t.passages.length) {
+    box.appendChild(el("div", "sect", "Passages from their writings it was given:"));
+    const ul = el("ul", "mem");
+    for (const p of t.passages) ul.appendChild(el("li", null, p.source + (p.heading ? ` · ${p.heading}` : "")));
+    box.appendChild(ul);
+  }
+  if (t.intensity !== undefined) {
+    box.appendChild(el("div", "sect", `Emotion dial: ${t.intensity === 0 ? "off" : t.intensity + "/10"}` + (t.voice ? ` · voice: ${t.voice}` : "")));
   }
   box.appendChild(el("div", "sect", "What the model was told to do:"));
   const ol = el("ol", "instr");
@@ -765,6 +932,14 @@ function autosize() { const t = $("input"); t.style.height = "auto"; t.style.hei
 function renderAll(info) {
   $("backend").textContent = info.model ? `${info.backend} · ${info.model}` : "offline rules (no model)";
   timeline = info.timeline || [];
+  persona = Object.assign({}, info.snapshot.persona || {});
+  const ps = $("persona"); ps.textContent = "";
+  for (const p of info.personas || []) { const o = el("option", null, p.name); o.value = p.id; ps.appendChild(o); }
+  ps.value = persona.id;
+  const vs = $("voice"); vs.textContent = "";
+  const own = el("option", null, "their own way"); own.value = ""; vs.appendChild(own);
+  for (const v of info.voices || []) { const o = el("option", null, v.name); o.value = v.id; vs.appendChild(o); }
+  renderChips();
   const box = $("messages"); box.textContent = "";
   if (!info.history.length) showEmpty();
   if (info.warning) {
@@ -838,11 +1013,20 @@ chart.addEventListener("keydown", (e) => {
 chart.addEventListener("blur", () => { hover = -1; renderChart(); showTip(-1); });
 new ResizeObserver(() => renderChart()).observe($("chartwrap"));
 
-for (const s of SUGGESTIONS) {
-  const c = el("button", "chip", s); c.type = "button";
-  c.addEventListener("click", () => send(s));
-  $("chips").appendChild(c);
-}
+$("persona").addEventListener("change", async (e) => {
+  try {
+    const r = await fetch("/api/persona", { method: "POST", headers: { "Content-Type": "application/json" },
+                                            body: JSON.stringify({ id: e.target.value }) });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || r.statusText);
+    renderAll(data);
+  } catch (err) { addNotice("Couldn't switch: " + err.message, true); }
+});
+$("dial").addEventListener("input", (e) => dialText(Number(e.target.value), (lastSnap && lastSnap.settings || {}).default_intensity));
+$("dial").addEventListener("change", (e) => saveSettings({ intensity: Number(e.target.value) }));
+$("voice").addEventListener("change", (e) => saveSettings({ voice: e.target.value || "none" }));
+$("clearlimits").addEventListener("click", () => saveSettings({ clear_limits: true }));
+renderChips();
 renderLegend();
 load();
 </script>
